@@ -81,10 +81,10 @@ final class AppModel {
 
         do {
             identity = try DeviceIdentityStore.loadOrCreate(commonName: Self.localDeviceName())
-            print("[Klyndro] Identity loaded: \(identity?.fingerprint.shortHex ?? "nil")")
+            NSLog("[Klyndro] Identity loaded: %@", identity?.fingerprint.shortHex ?? "nil")
         } catch {
             identityError = String(describing: error)
-            print("[Klyndro] Identity error: \(error)")
+            NSLog("[Klyndro] Identity error: %@", String(describing: error))
             return
         }
 
@@ -228,10 +228,10 @@ final class AppModel {
             try await listener.start()
             self.listener = listener
             isListening = true
-            print("[Klyndro] Listener started on port: \(Self.servicePort), policy: \(policy)")
+            NSLog("[Klyndro] Listener started on port: %d, policy: %@", Self.servicePort, String(describing: policy))
         } catch {
             listenerError = "Could not start listening: \(error)"
-            print("[Klyndro] Listener error: \(error)")
+            NSLog("[Klyndro] Listener error: %@", String(describing: error))
         }
     }
 
@@ -243,6 +243,7 @@ final class AppModel {
     /// A connection either belongs to an open pairing window or must present a pinned identity.
     private func handle(_ transport: NWFrameTransport) async {
         guard let identity else { return }
+        NSLog("[Klyndro] accepted connection, pairing window open: %d", isPairingWindowOpen ? 1 : 0)
 
         if isPairingWindowOpen, let window = pairingWindow {
             let remote = transport.remoteEndpoint
@@ -382,11 +383,13 @@ final class AppModel {
     private func handleSessionEvent(_ event: PeerSessionEvent, session: PeerSession) async {
         switch event {
         case .established(let info):
+            NSLog("[Klyndro] session established with %@", info.name)
             upsertConnectedDevice(info, state: .connected)
             await startClipboardIfSupported(info, session: session)
         case .message(let envelope):
             await handleClipboardMessage(envelope)
         case .closed:
+            NSLog("[Klyndro] session closed")
             await stopClipboard()
             activeSession = nil
             devices = devices.map { row in

@@ -87,9 +87,7 @@ public final class NWFrameTransport: FrameTransport, PeerKeyReporting, @unchecke
             as? NWProtocolTLS.Metadata else { return nil }
         guard let key = sec_protocol_metadata_copy_peer_public_key(metadata.securityProtocolMetadata)
         else { return nil }
-        if ProcessInfo.processInfo.environment["KLYNDRO_TRACE"] != nil {
-            print("[tls] metadata key bytes=\((key as AnyObject as? Data)?.count ?? -1) head=\((key as AnyObject as? Data)?.prefix(4).map { String($0, radix: 16) } ?? [])")
-        }
+        NSLog("[tls] peer key bytes=%d", (key as AnyObject as? Data)?.count ?? -1)
         // `dispatch_data_t` bridges to `Data` through `AnyObject`; a direct `as Data` does not
         // compile against this SDK. Exercised by the TLS loopback test.
         return key as AnyObject as? Data

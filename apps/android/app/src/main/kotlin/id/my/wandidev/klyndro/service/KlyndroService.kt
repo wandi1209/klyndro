@@ -228,15 +228,89 @@ class KlyndroService : Service() {
                 it.copy(phase = ConnectionStatus.Phase.CONNECTING, lastError = null)
             }
 
-            try {
-                val transport = TlsClient.connect(
-                    host = host,
-                    port = port,
-                    identity = local,
-                    policy = PinPolicy.pinned(store.allPeers()),
-                    scope = scope
-                )
+            // The stored address can go stale (USB tunnel dropped, DHCP change). A live mDNS
+            // record for the same device is a better second guess than giving up.
+            val currentlyDiscovered = ConnectionRuntime.discovered.value
+            android.util.Log.i(
+                TAG_CONNECT,
+                "peer.deviceId=${peer.deviceId} discovered=${currentlyDiscovered.map { it.deviceId + "@" + it.host + ":" + it.port }}"
+            )
+            val targets = buildList {
+                add(host to port)
+                currentlyDiscovered
+                    .firstOrNull { it.deviceId == peer.deviceId }
+                    ?.let { found ->
+                        if (found.host != host || found.port != port) add(found.host to found.port)
+                    }
+            }
 
+            var lastError: Exception? = null
+            var attemptedFallback = targets.size > 1
+            var remainingTargets = targets
+            var pollsLeft = 20
+
+            while (true) {
+                for ((targetHost, targetPort) in remainingTargets) {
+                    try {
+                        val established = connectAndRunSession(targetHost, targetPort, local, store)
+                        if (established) return@launch
+                        lastError = IllegalStateException(
+                            "session to $targetHost:$targetPort closed before the handshake finished"
+                        )
+                    } catch (error: Exception) {
+                        android.util.Log.w(
+                            TAG_CONNECT,
+                            "connect failed at $targetHost:$targetPort: ${error.javaClass.simpleName}: ${error.message}"
+                        )
+                        lastError = error
+                    }
+                }
+
+                // mDNS can take a few seconds to resolve after the service (re)starts. Give it a
+                // short window before reporting failure, rather than failing on the first dial.
+                if (attemptedFallback || pollsLeft <= 0) break
+                pollsLeft -= 1
+                kotlinx.coroutines.delay(1_000)
+                val found = ConnectionRuntime.discovered.value.firstOrNull { it.deviceId == peer.deviceId }
+                if (found != null && (found.host != host || found.port != port)) {
+                    remainingTargets = listOf(found.host to found.port)
+                    attemptedFallback = true
+                } else {
+                    remainingTargets = emptyList()
+                }
+            }
+
+            val error = lastError
+            if (error != null) {
+                ConnectionRuntime.update {
+                    it.copy(
+                        phase = ConnectionStatus.Phase.ERROR,
+                        lastError = error.message ?: getString(R.string.service_error_failed)
+                    )
+                }
+            }
+        }
+    }
+
+    /** Dials a pinned peer and runs one session. Returns true once an established session closes. */
+    private suspend fun connectAndRunSession(
+        host: String,
+        port: Int,
+        local: DeviceIdentity,
+        store: TrustStore
+    ): Boolean {
+        android.util.Log.i(TAG_CONNECT, "dialing pinned peer at $host:$port")
+        val transport = TlsClient.connect(
+            host = host,
+            port = port,
+            identity = local,
+            policy = PinPolicy.pinned(store.allPeers()),
+            scope = scope
+        )
+        android.util.Log.i(TAG_CONNECT, "tls handshake complete, starting session")
+
+        var established = false
+        try {
                 val newSession = PeerSession(
                     transport = transport,
                     local = localInfo(local),
@@ -254,6 +328,8 @@ class KlyndroService : Service() {
                     for (event in newSession.events()) {
                         when (event) {
                             is PeerSessionEvent.Established -> {
+                                established = true
+                                android.util.Log.i(TAG_CONNECT, "session established with ${event.info.name}")
                                 ConnectionRuntime.update {
                                     it.copy(
                                         phase = ConnectionStatus.Phase.CONNECTED,
@@ -277,6 +353,7 @@ class KlyndroService : Service() {
                             }
 
                             is PeerSessionEvent.Closed -> {
+                                android.util.Log.i(TAG_CONNECT, "session closed")
                                 ConnectionRuntime.detachSender()
                                 session = null
                                 ConnectionRuntime.update {
@@ -288,16 +365,12 @@ class KlyndroService : Service() {
                     }
                 }
 
-                newSession.run()
-            } catch (error: Exception) {
-                ConnectionRuntime.update {
-                    it.copy(
-                        phase = ConnectionStatus.Phase.ERROR,
-                        lastError = error.message ?: getString(R.string.service_error_failed)
-                    )
-                }
-            }
+            newSession.run()
+        } finally {
+            ConnectionRuntime.detachSender()
+            session = null
         }
+        return established
     }
 
     // MARK: - Helpers
@@ -453,6 +526,7 @@ class KlyndroService : Service() {
         private const val KEY_DEVICE_ID = "device_id"
         private const val MAX_DEVICE_NAME_CHARS = 64
         private const val PAIRING_RECONNECT_DELAY_MILLIS = 800L
+        private const val TAG_CONNECT = "KlyndroConnect"
 
         fun intent(context: Context, action: String): Intent =
             Intent(context, KlyndroService::class.java).setAction(action)
