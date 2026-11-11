@@ -1,0 +1,39 @@
+MIT License
+
+Copyright (c) 2026 Klyndro contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Third-party attribution
+
+Klyndro invokes or interoperates with the following third-party software. No
+third-party code is vendored into this repository at milestone M0.
+
+- scrcpy (https://github.com/Genymobile/scrcpy) — Apache License 2.0.
+  Klyndro launches the user's own scrcpy installation as a child process and
+  does not bundle, modify, or relicense it. Attribution and distribution
+  obligations of scrcpy remain with the scrcpy project and its distributors.
+- Android SDK Platform Tools (adb) — Apache License 2.0, Google.
+- swift-certificates and swift-crypto (https://github.com/apple) — Apache License 2.0.
+  Linked into the macOS app at build time; used to DER-encode the self-signed identity
+  certificate and nothing else. No cryptographic primitive is implemented by Klyndro.
+- Bouncy Castle (https://www.bouncycastle.org) — Bouncy Castle licence (MIT-style).
+  Linked into the Android app to DER-encode the self-signed identity certificate.

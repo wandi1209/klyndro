@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+xcuserdata/
+DerivedData/
+build/
+*.xcresult
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# Android / Gradle
+.gradle/
+local.properties
+*.iml
+.kotlin/
+captures/
+.cxx/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Transient verification artifacts (screenshots, logs) from device sessions
+.verify/
+
+# Local secrets and machine-specific configuration
+*.local.*
+.env
+.env.*
