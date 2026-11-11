@@ -25,7 +25,7 @@ notifications, and file transfer.
 | M2 | Bidirectional clipboard | **Verified on device** while the Android app is on screen; background behaviour NOT TESTED |
 | M3 | Screen mirroring via scrcpy | **Verified on device** (USB + Wi-Fi, mouse/keyboard control, rotate, resize, screen-off, clean stop); fullscreen NOT verified |
 | M4 | Login item, menu bar integration, reconnect, Android service lifecycle | **Verified on device** (Android auto-connect on resume, mDNS trigger, backoff retry, macOS NWPathMonitor & sleep/wake) |
-| M5 | Notifications, file transfer | Not started |
+| M5 | Notifications, file transfer | **Verified on device** (Android -> Mac notification banner + chunked file transfer with SHA-256 verification) |
 | M6 | Release engineering, packaging, security review | Not started |
 
 ## Features
@@ -38,9 +38,9 @@ In priority order. Pairing and clipboard work today; the rest are designed, not 
 | Universal clipboard | Bidirectional text sync with loop suppression | **Verified on device** in both directions with loop suppression; foreground only (Android rule) |
 | Screen mirroring and control | Managed `scrcpy` process | **Verified on device** (USB + Wi-Fi); fullscreen NOT verified |
 | Automatic reconnection | Bounded exponential backoff, network-change aware | **Verified on device** (mDNS live match, backoff retry, sleep/wake recovery) |
-| Notification forwarding | `NotificationListenerService` → macOS notifications | Designed (M5) |
-| File transfer | Direct local-network transfer with integrity checks | Designed (M5) |
-| Menu bar integration | `MenuBarExtra`, launch at login | Shell exists (M4) |
+| Notification forwarding | `NotificationListenerService` → macOS notifications | **Verified on device** (5-min dedup, native banner delivery) |
+| File transfer | Direct local-network transfer with integrity checks | **Verified on device** (Android → Mac chunked transfer + SHA-256) |
+| Menu bar integration | `MenuBarExtra`, launch at login | **Verified on device** (`SMAppService.mainApp` + live status/controls) |
 
 ## Requirements
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import id.my.wandidev.klyndro.R
+import id.my.wandidev.klyndro.notifications.KlyndroNotificationListener
 import id.my.wandidev.klyndro.ui.InfoCard
 import id.my.wandidev.klyndro.ui.ScreenColumn
 import id.my.wandidev.klyndro.ui.ScreenHeader
@@ -20,6 +21,7 @@ import id.my.wandidev.klyndro.ui.ScreenHeader
 @Composable
 fun PermissionsScreen() {
     val context = LocalContext.current
+    val hasNotifAccess = KlyndroNotificationListener.isPermissionGranted(context)
 
     ScreenColumn {
         ScreenHeader(
@@ -42,10 +44,21 @@ fun PermissionsScreen() {
         InfoCard(
             title = stringResource(R.string.permissions_notifications_title),
             body = stringResource(R.string.permissions_notifications_body),
-            badge = stringResource(R.string.permissions_state_not_required)
+            badge = if (hasNotifAccess) "Granted" else "Requires grant"
         )
 
         Spacer(modifier = Modifier.height(4.dp))
+
+        if (!hasNotifAccess) {
+            Button(
+                onClick = {
+                    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    context.startActivity(intent)
+                }
+            ) {
+                Text("Grant Notification Access")
+            }
+        }
 
         Button(
             onClick = {

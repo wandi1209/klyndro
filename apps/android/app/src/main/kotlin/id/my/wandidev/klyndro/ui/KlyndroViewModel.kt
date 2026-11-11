@@ -51,6 +51,19 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
     var clipboardActionMessage by mutableStateOf<String?>(null)
         private set
 
+    fun sendFileUri(uri: android.net.Uri) {
+        val context = getApplication<Application>()
+        viewModelScope.launch {
+            clipboardActionMessage = "Sending file to Mac…"
+            val res = id.my.wandidev.klyndro.filetransfer.AndroidFileSender.sendUri(context, uri)
+            res.onSuccess { name ->
+                clipboardActionMessage = "File sent: $name"
+            }.onFailure { err ->
+                clipboardActionMessage = "File send failed: ${err.message}"
+            }
+        }
+    }
+
     /**
      * What Klyndro last saw in the clipboard.
      *

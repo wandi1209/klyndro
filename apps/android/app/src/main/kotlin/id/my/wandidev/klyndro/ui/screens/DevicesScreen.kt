@@ -1,5 +1,8 @@
 package id.my.wandidev.klyndro.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +41,11 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
     val discovered by viewModel.discovered.collectAsStateWithLifecycle()
     var started by remember { mutableStateOf(false) }
     var manualText by remember { mutableStateOf("") }
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.sendFileUri(it) }
+    }
 
     ScreenColumn {
         ScreenHeader(
@@ -173,6 +181,14 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
             enabled = manualText.isNotBlank()
         ) {
             Text(stringResource(R.string.clipboard_send_text_action))
+        }
+
+        OutlinedButton(
+            onClick = { filePicker.launch(arrayOf("*/*")) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = status.phase == ConnectionStatus.Phase.CONNECTED
+        ) {
+            Text("Send File to Mac…")
         }
 
         viewModel.clipboardActionMessage?.let { message ->

@@ -1,8 +1,8 @@
 # Verification status
 
 The single source of truth for what has actually been executed. Last updated: **2026-11-11**
-(M4). Background autoconnect & lifecycle (M4), screen mirroring (M3), bidirectional clipboard (M2),
-and mutual TLS pairing (M1) are verified on hardware (Redmi Note 13 5G + MacBook Air M3).
+(M5). Notification forwarding & file transfer (M5), background autoconnect (M4), screen mirroring (M3),
+bidirectional clipboard (M2), and mutual TLS pairing (M1) are verified on real hardware.
 
 Device under test: Xiaomi Redmi Note 13 5G (`2312DRAABG`, codename `iron`), HyperOS 3.0
 (`OS3.0.3.0.VNQIDXM`), Android 15 (API 35), arm64-v8a, attached over USB as
@@ -11,6 +11,19 @@ Device under test: Xiaomi Redmi Note 13 5G (`2312DRAABG`, codename `iron`), Hype
 Vocabulary: `PASS` executed and observed working · `FAIL` executed and observed broken ·
 `BLOCKED` cannot execute (external constraint) · `NOT TESTED` implemented/designed but
 unverified.
+
+## M5 — notification forwarding & file transfer
+
+Notification forwarding (`NotificationListenerService` -> `UNUserNotificationCenter`) with 5-minute
+deduplication, and chunked local-network file transfer (`file.offer` -> `file.chunk` ->
+`file.complete`) with SHA-256 integrity verification and filename conflict resolution.
+
+| # | Claim | Result |
+| --- | --- | --- |
+| M5-V1 | Notification & file protocol codecs + fixture conformance tests | **PASS** — 5 new Swift tests (172 total in 26 suites), Android `NotificationMessagesTest` passing |
+| M5-D1 | Android notification forwarded to macOS Notification Center | **PASS** — `cmd notification post` captured by `KlyndroNotificationListener`, sent (`sent: true`), and presented as banner by `usernoted` |
+| M5-D2 | Android -> Mac file transfer with SHA-256 verification | **PASS** — 301 KB image sent from Redmi Note 13 5G, saved to `~/Downloads/` with identical SHA-256 (`1fad05d6541...`) |
+| M5-N1 | Mac -> Android file transfer | **NOT TESTED** — Android -> Mac path shipped & verified first |
 
 ## M4 — background integration & autoconnect
 

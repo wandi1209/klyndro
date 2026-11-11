@@ -100,6 +100,9 @@ final class AppModel {
         await probeToolchain()
         startNetworkMonitoring()
         registerSleepWakeNotifications()
+        if UserDefaults.standard.bool(forKey: PreferenceKeys.notificationsEnabled) {
+            Task { _ = await NotificationCenterForwarder.shared.requestAuthorization() }
+        }
     }
 
     func shutDown() {
@@ -424,6 +427,56 @@ final class AppModel {
         if clipboard.sentCount > 0 { lastClipboardActivity = Date() }
     }
 
+    private func handleIncomingMessage(_ envelope: Envelope) async {
+        switch envelope.messageType {
+        case .clipboardUpdate, .clipboardAck:
+            await handleClipboardMessage(envelope)
+        case .notificationPost:
+            let notificationsEnabled = UserDefaults.standard.bool(forKey: PreferenceKeys.notificationsEnabled)
+            guard notificationsEnabled else { return }
+            guard let post = try? NotificationMessageCodec.decodePost(envelope) else { return }
+            NSLog("[Klyndro] forwarding notification from %{public}@", post.appName)
+            _ = await NotificationCenterForwarder.shared.requestAuthorization()
+            await NotificationCenterForwarder.shared.post(post)
+        case .fileOffer:
+            guard let offer = try? FileMessageCodec.decodeOffer(envelope) else { return }
+            let accepted = await FileTransferReceiver.shared.handleOffer(offer)
+            let replyType: MessageType = accepted ? .fileAccept : .fileReject
+            var replyObj: [String: JSONValue] = ["transfer_id": .string(offer.transferId)]
+            if !accepted { replyObj["reason"] = .string("busy") }
+            try? await activeSession?.send(Envelope(type: replyType, body: .object(replyObj)))
+        case .fileChunk:
+            guard let body = envelope.body,
+                  let tid = body["transfer_id"]?.stringValue,
+                  let offset = body["offset"]?.intValue,
+                  let b64 = body["data_b64"]?.stringValue else { return }
+            _ = await FileTransferReceiver.shared.handleChunk(
+                FileChunkBody(transferId: tid, offset: Int64(offset), dataB64: b64)
+            )
+        case .fileComplete:
+            guard let body = envelope.body,
+                  let tid = body["transfer_id"]?.stringValue,
+                  let sha = body["sha256"]?.stringValue else { return }
+            if let savedURL = await FileTransferReceiver.shared.handleComplete(
+                FileCompleteBody(transferId: tid, sha256: sha)
+            ) {
+                let post = NotificationPostBody(
+                    key: "klyndro-file:\(tid)",
+                    package: "id.my.wandidev.klyndro",
+                    appName: "Klyndro File Transfer",
+                    title: "File Received",
+                    text: savedURL.lastPathComponent,
+                    postedAt: Envelope.now(),
+                    sensitive: false
+                )
+                _ = await NotificationCenterForwarder.shared.requestAuthorization()
+                await NotificationCenterForwarder.shared.post(post)
+            }
+        default:
+            break
+        }
+    }
+
     private func handleClipboardMessage(_ envelope: Envelope) async {
         guard let clipboard else { return }
 
@@ -448,7 +501,7 @@ final class AppModel {
             upsertConnectedDevice(info, state: .connected)
             await startClipboardIfSupported(info, session: session)
         case .message(let envelope):
-            await handleClipboardMessage(envelope)
+            await handleIncomingMessage(envelope)
         case .closed:
             NSLog("[Klyndro] session closed")
             await stopClipboard()

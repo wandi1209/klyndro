@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+  "type": "file.offer",
+  "ts": 1762800040000,
+  "body": {
+    "transfer_id": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+    "filename": "sample.pdf",
+    "size_bytes": 1048576,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mime_type": "application/pdf"
+  }
+}

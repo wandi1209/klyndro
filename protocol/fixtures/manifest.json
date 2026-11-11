@@ -9,6 +9,7 @@
     { "file": "clipboard-update.json", "expect": "valid", "type": "clipboard.update" },
     { "file": "clipboard-ack.json", "expect": "valid", "type": "clipboard.ack" },
     { "file": "notification-post.json", "expect": "valid", "type": "notification.post" },
+    { "file": "file-offer.json", "expect": "valid", "type": "file.offer" },
     { "file": "error.json", "expect": "valid", "type": "error" },
     { "file": "unknown-type.json", "expect": "unknown_type", "type": "future.capability" },
     { "file": "malformed-missing-type.json", "expect": "malformed" },

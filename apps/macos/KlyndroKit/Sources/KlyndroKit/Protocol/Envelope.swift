@@ -10,6 +10,11 @@ public enum MessageType: Equatable, Sendable, Hashable {
     case clipboardUpdate
     case clipboardAck
     case notificationPost
+    case fileOffer
+    case fileAccept
+    case fileReject
+    case fileChunk
+    case fileComplete
     case pairRequest
     case pairConfirm
     case pairResult
@@ -25,6 +30,11 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case "clipboard.update": self = .clipboardUpdate
         case "clipboard.ack": self = .clipboardAck
         case "notification.post": self = .notificationPost
+        case "file.offer": self = .fileOffer
+        case "file.accept": self = .fileAccept
+        case "file.reject": self = .fileReject
+        case "file.chunk": self = .fileChunk
+        case "file.complete": self = .fileComplete
         case "pair.request": self = .pairRequest
         case "pair.confirm": self = .pairConfirm
         case "pair.result": self = .pairResult
@@ -42,6 +52,11 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case .clipboardUpdate: return "clipboard.update"
         case .clipboardAck: return "clipboard.ack"
         case .notificationPost: return "notification.post"
+        case .fileOffer: return "file.offer"
+        case .fileAccept: return "file.accept"
+        case .fileReject: return "file.reject"
+        case .fileChunk: return "file.chunk"
+        case .fileComplete: return "file.complete"
         case .pairRequest: return "pair.request"
         case .pairConfirm: return "pair.confirm"
         case .pairResult: return "pair.result"

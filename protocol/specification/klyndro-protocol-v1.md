@@ -201,9 +201,23 @@ either a bug or an attempt to re-pair without user consent.
 
 ### 5.5 File transfer (M5)
 
-Reserved: `file.offer`, `file.accept`, `file.reject`, `file.complete`, and binary
-`kind = 0x02` chunk frames. The chunk header layout is deliberately **not** fixed yet;
-defining it before implementation would be speculative.
+Implemented for local-network transfers using JSON envelope frames (`kind = 0x01`):
+
+| Type | Status | Body |
+| --- | --- | --- |
+| `file.offer` | specified (M5) | `transfer_id`, `filename`, `size_bytes`, `sha256`, `mime_type` |
+| `file.accept` | specified (M5) | `transfer_id` |
+| `file.reject` | specified (M5) | `transfer_id`, `reason` |
+| `file.chunk` | specified (M5) | `transfer_id`, `offset`, `data_b64` |
+| `file.complete` | specified (M5) | `transfer_id`, `sha256` |
+
+- `transfer_id` is a lowercase UUID string uniquely identifying the transfer.
+- `filename` is sanitized (base name only, max 255 bytes; path traversal components rejected).
+- `size_bytes` is the total file size in bytes (integer >= 0).
+- `sha256` is the lowercase hex SHA-256 of the complete file content, used for integrity verification upon completion.
+- `data_b64` is standard Base64-encoded chunk payload. Each chunk payload MUST NOT exceed 512 KiB raw (so the JSON envelope remains strictly under the 1 MiB frame limit).
+- Receivers write chunks incrementally or to a temporary file, verify total size and SHA-256 on `file.complete`, resolve filename conflicts (e.g., appending ` (1)`), and move to the configured destination (`~/Downloads` on macOS, `Downloads/Klyndro` on Android).
+- Binary `kind = 0x02` chunk frames remain reserved for a future v2 throughput optimization.
 
 ## 6. Error codes
 
