@@ -1,9 +1,8 @@
 # Verification status
 
 The single source of truth for what has actually been executed. Last updated: **2026-11-11**
-(M2). Clipboard sync is implemented on both platforms and verified by the host/unit suites **and**
-on real hardware: pairing, pinned reconnect over Wi-Fi, and clipboard in both directions all ran
-against the Redmi Note 13 5G. Remaining M2 gaps are listed under "Still NOT TESTED".
+(M3). Screen mirroring (USB + Wi-Fi) is verified on real hardware (Redmi Note 13 5G) via
+managed scrcpy child processes, alongside pairing and bidirectional clipboard.
 
 Device under test: Xiaomi Redmi Note 13 5G (`2312DRAABG`, codename `iron`), HyperOS 3.0
 (`OS3.0.3.0.VNQIDXM`), Android 15 (API 35), arm64-v8a, attached over USB as
@@ -26,9 +25,10 @@ USB mirroring works from the app on the Redmi Note 13 5G. Full table with eviden
 | M3-D3 | Rotate, resize | **PASS** |
 | M3-D4 | Stop and quit leave no scrcpy or scrcpy-server process | **PASS** |
 | M3-D5 | adb lost mid-session: process cleaned up, app survives | **PASS** (UI failure text NOT TESTED) |
+| M3-D6 | Wireless mirroring over Wi-Fi (adb connect endpoint) | **PASS** — child process launched, mouse control confirmed |
+| M3-D7 | Screen-off mode (`--turn-screen-off`) | **PASS** — verified dark panel by user on physical device |
 | M3-N1 | Fullscreen | **NOT VERIFIED** |
-| M3-N2 | Screen-off mode | **NOT VERIFIED** — needs someone to look at the phone |
-| M3-N3 | Wireless mirroring and `adb pair` | **NOT TESTED** — opens an adb port, needs an explicit decision |
+| M3-N2 | Wireless mirroring via `adb tcpip 5555` | **NOT TESTED** — avoided in favour of Android 11+ Wireless Debugging |
 | M3-N4 | Scoping mirroring to Klyndro-paired devices | **NOT MET** — adb serial is not a Klyndro device ID |
 
 ## M2 — clipboard synchronization

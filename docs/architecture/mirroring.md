@@ -1,8 +1,8 @@
 # Screen mirroring
 
-**Status: USB mirroring implemented and verified on a Redmi Note 13 5G (M3).** Wireless
-mirroring, screen-off mode, and fullscreen are NOT VERIFIED; see the table at the end. Checked
-against **scrcpy 5.0.1** and `adb` 1.0.41 (platform-tools 36.0.2).
+**Status: USB and Wireless mirroring implemented and verified on a Redmi Note 13 5G (M3).**
+Screen-off mode verified on hardware by the user; fullscreen is NOT VERIFIED; see the table at the
+end. Checked against **scrcpy 5.0.1** and `adb` 1.0.41 (platform-tools 36.0.2).
 
 ## Why scrcpy as an external process
 
@@ -138,8 +138,9 @@ scrcpy window with synthesized mouse and key events.
 | Quit the app while mirroring leaves no process | **PASS** — 0 scrcpy and 0 scrcpy-server processes after the app exited |
 | adb lost while mirroring (`adb kill-server`) | **PASS for process cleanup** — scrcpy exited and Klyndro stayed alive. The failure message shown in the UI was **NOT TESTED** |
 | Fullscreen (`F11`) | **NOT VERIFIED** — the window moved and changed z-order but kept its size; not enough to claim fullscreen |
-| Screen-off mode (`--turn-screen-off`) | **NOT VERIFIED** — scrcpy logged `Device display turned off`, but `dumpsys display` kept reporting `committedState ON`; whether the panel is dark needs a person looking at the phone |
-| Wireless mirroring (`--tcpip`) | **NOT TESTED** — needs an explicit decision to open an adb port |
+| Screen-off mode (`--turn-screen-off`) | **PASS** — verified dark panel on device by user inspection |
+| Wireless mirroring over Wi-Fi (`adb connect` target) | **PASS** — launched via Klyndro child process (`192.168.21.92:43729`), mouse click in window successfully switched phone tab |
+| Wireless mirroring (`--tcpip`) | **NOT TESTED** — requires running `adb tcpip` which opens port 5555; avoided in favour of Android 11+ Wireless Debugging |
 | First-time wireless pairing (`adb pair`) | **NOT TESTED** |
 | Restart after network drop | **NOT TESTED** — there is no auto-restart |
 | UI text for `unauthorized` / missing scrcpy | **NOT TESTED** on screen; the strings are unit-tested |
