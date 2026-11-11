@@ -44,6 +44,8 @@ final class AppModel {
     private(set) var pairingFailure: PairingFailure?
     private(set) var isPairingWindowOpen = false
 
+    let mirroring = MirroringController()
+
     /// Clipboard activity, surfaced so "sync is on" is backed by something observable.
     private(set) var clipboardSentCount = 0
     private(set) var clipboardAppliedCount = 0
@@ -92,9 +94,12 @@ final class AppModel {
         refreshPeers()
         startDiscovery()
         await startListener(policy: pinnedPolicy())
+        // The menu bar's mirroring item needs the toolchain result without opening the window.
+        await probeToolchain()
     }
 
     func shutDown() {
+        mirroring.stop()
         tasks.forEach { $0.cancel() }
         tasks.removeAll()
         clipboard?.stop()
@@ -132,6 +137,8 @@ final class AppModel {
         defer { isProbingToolchain = false }
         toolchain = await ToolchainProbe.probe()
         lastProbedAt = Date()
+        mirroring.updateToolchain(toolchain)
+        await mirroring.refreshDevices()
     }
 
     // MARK: - Deep links
@@ -139,8 +146,19 @@ final class AppModel {
     /// Handles `klyndro://` URLs.
     func handle(url: URL) async {
         guard url.scheme == "klyndro" else { return }
-        if url.host == "pair" {
+        switch url.host {
+        case "pair":
             await beginPairing()
+        case "mirror":
+            // klyndro://mirror/start | stop — scripted verification and shortcuts.
+            switch url.path {
+            case "/stop": mirroring.stop()
+            default:
+                await mirroring.refreshDevices()
+                mirroring.start()
+            }
+        default:
+            break
         }
     }
 

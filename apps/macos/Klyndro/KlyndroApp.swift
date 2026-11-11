@@ -19,6 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Quitting must not leave a scrcpy window (and its adb server process) running unattended.
+    func applicationWillTerminate(_ notification: Notification) {
+        guard let model = Self.model else { return }
+        MainActor.assumeIsolated { model.shutDown() }
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let model = Self.model else { return }
         for url in urls where url.scheme == "klyndro" {

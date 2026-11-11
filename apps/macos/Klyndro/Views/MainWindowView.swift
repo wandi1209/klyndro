@@ -22,6 +22,7 @@ struct MainWindowView: View {
                     statusSection
                     devicesSection
                     discoveredSection
+                    MirroringSection()
                     toolchainSection
                 }
                 .padding(20)

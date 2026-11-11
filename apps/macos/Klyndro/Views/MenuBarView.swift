@@ -26,9 +26,13 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
 
-        Button("Screen Mirroring…") {}
-            .disabled(true)
-            .help("Available after scrcpy integration in M3")
+        if model.mirroring.isActive {
+            Button("Stop Screen Mirroring") { model.mirroring.stop() }
+        } else {
+            Button("Start Screen Mirroring") { model.mirroring.start() }
+                .disabled(model.mirroring.blockingReason != nil)
+                .help(model.mirroring.blockingReason ?? "Mirror the phone with scrcpy")
+        }
 
         Divider()
 
