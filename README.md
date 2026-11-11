@@ -7,15 +7,13 @@ integration. It pairs your phone with your Mac over the local network — no acc
 cloud, no relay — and aims to provide shared clipboard, screen mirroring, remote control,
 notifications, and file transfer.
 
-> **Project status: M2 (clipboard) implemented and host-verified; on-hardware verification is
-> BLOCKED.** The clipboard sync engines, the macOS pasteboard integration, the Android foreground
-> connection service, the pairing/connect flow and UI, and the foreground + explicit clipboard
-> paths are all built and covered by the unit suites (148 Swift tests including a two-peer
-> clipboard integration test; 102 Android JVM tests). All host build/test targets are green:
-> `swift test`, `:app:testDebugUnitTest`, the macOS app build, and `:app:assembleDebug` /
-> `:app:assembleDebugAndroidTest`. **A cross-device session has not succeeded yet**: the first
-> on-device pairing attempt failed (`internal`, root cause undiagnosed) and the test device is now
-> detached, so live Mac↔phone pairing and clipboard verification are **BLOCKED**. See
+> **Project status: M2 (clipboard) works on real hardware.** A MacBook Air M3 and a Redmi Note 13 5G
+> (HyperOS 3, Android 15) pair with a six-digit code, reconnect over Wi-Fi with pinned keys, and
+> sync text in both directions without echo. Android only allows clipboard access to the app on
+> screen, so sync runs while Klyndro is open; that is a platform rule, not a bug. Unit suites are
+> green (148 Swift tests, 102 Android JVM tests) and the 11 on-device instrumented tests pass.
+> **Not tested yet:** background or screen-off behaviour, HyperOS autostart/battery settings, and
+> automatic reconnect after sleep or a network change (M4). See
 > [verification status](docs/testing/verification-status.md).
 
 ## Status
@@ -24,7 +22,7 @@ notifications, and file transfer.
 | --- | --- | --- |
 | M0 | Research, architecture, protocol spec, repository + app skeletons, build/test commands | **Complete** |
 | M1 | Discovery, secure pairing, authentication, connection lifecycle | **Complete** — verified on Mac + Redmi Note 13 5G |
-| M2 | Bidirectional clipboard | **Implemented** — host/unit verified; on-device verification BLOCKED (device detached) |
+| M2 | Bidirectional clipboard | **Verified on device** while the Android app is on screen; background behaviour NOT TESTED |
 | M3 | Screen mirroring via scrcpy | Not started |
 | M4 | Login item, menu bar integration, reconnect, Android service lifecycle | Not started |
 | M5 | Notifications, file transfer | Not started |
@@ -32,12 +30,12 @@ notifications, and file transfer.
 
 ## Features
 
-Planned, in priority order. None of the application features are implemented at M0.
+In priority order. Pairing and clipboard work today; the rest are designed, not built.
 
 | Feature | Plan | Status |
 | --- | --- | --- |
-| Secure device identity and pairing | Self-signed P-256 identity, mutual TLS 1.3, pinned SPKI, six-digit SAS | **Implemented** (macOS responder + Android initiator + UI) — logic/TLS verified both stacks; first real-network attempt **FAIL**, diagnosis **BLOCKED** |
-| Universal clipboard | Bidirectional text sync with loop suppression | **Implemented** — engines + macOS pasteboard + Android foreground/explicit paths; unit-verified; on-device **BLOCKED** |
+| Secure device identity and pairing | Self-signed P-256 identity, mutual TLS 1.3, pinned SPKI, six-digit SAS | **Verified on device** (macOS responder + Android initiator + UI) — real pairing and pinned reconnect over Wi-Fi |
+| Universal clipboard | Bidirectional text sync with loop suppression | **Verified on device** in both directions with loop suppression; foreground only (Android rule) |
 | Screen mirroring and control | Managed `scrcpy` process | Designed (M3) |
 | Automatic reconnection | Bounded exponential backoff, network-change aware | Designed (M4) |
 | Notification forwarding | `NotificationListenerService` → macOS notifications | Designed (M5) |
@@ -129,17 +127,17 @@ These are platform facts, not missing polish. Each is documented with sources in
   service does not change this. Fully automatic clipboard sync therefore cannot be
   promised; Klyndro plans explicit fallbacks and will publish per-device test results.
 - **HyperOS adds its own background rules.** Autostart and battery settings must be
-  adjusted by the user, and HyperOS may still stop background work. Not yet tested: no
-  Android device is connected to the development machine.
+  adjusted by the user, and HyperOS may still stop background work. Autostart and battery
+  behaviour have not been tested yet (M4).
 - **scrcpy has no embeddable library.** Klyndro launches it as a child process. Sandboxing
   and distribution choices follow from that (see ADR 0006).
-- **Android now holds a connection, but pairing is unproven.** A foreground service
-  (`KlyndroService`) opens the socket, and the Devices screen drives pairing and connect. The
-  first end-to-end pairing attempt returned `internal` on the phone and has not been diagnosed;
-  `KlyndroPairing` logging is in place for the next attached session.
-- **Nothing has been verified device-to-device.** Each side is verified on its own (unit +
-  on-device loopback for M1); the first successful Mac↔phone clipboard session still has to
-  happen, and is BLOCKED while the device is detached.
+- **Clipboard sync only runs while Klyndro is on screen.** The foreground service holds the
+  socket, but Android lets only the focused app touch the clipboard. A copy made while Klyndro is
+  in the background is picked up the next time you open it.
+- **No automatic reconnect yet.** After the USB tunnel drops, a Mac sleep, or a Wi-Fi change you
+  press Start again. The phone tries the stored address, then a live mDNS match (M4 adds a loop).
+- **Your network must route between the two devices and allow mDNS.** Verified across two subnets
+  (`192.168.21.x` and `192.168.23.x`); client-isolation Wi-Fi will block it.
 - **HyperOS install quirk.** USB installs fail while the screen is locked
   (`INSTALL_FAILED_USER_RESTRICTED`), and Gradle can report `BUILD SUCCESSFUL` even when the test
   APK failed to install. See [compatibility matrix](docs/testing/compatibility-matrix.md).
@@ -152,15 +150,13 @@ These are platform facts, not missing polish. Each is documented with sources in
   its Devices screen observed rendering, but its controls have not been exercised in a live
   session.
 - Manual IP entry (F01) is specified but not in the UI.
-- The M2 clipboard paths are implemented but not proven device-to-device: the first pairing
-  attempt failed (`internal`) and diagnosis is BLOCKED while the device is detached.
+- A pairing made over the USB button stores `127.0.0.1` as the Mac's address, which goes stale
+  when the tunnel drops; the reconnect fallback hides this rather than fixing the stored value.
 - Release builds, signing, notarisation, and packaging are deliberately out of scope until M6.
 
 ## Roadmap
 
-M2 (clipboard) is implemented and host-verified; finishing it needs an attached device to
-diagnose the pairing `internal` failure and prove the live clipboard paths. M3 (mirroring)
-follows. See [architecture overview](docs/architecture/overview.md)
+M2 (clipboard) is verified on hardware. M3 (mirroring via scrcpy) is next. See [architecture overview](docs/architecture/overview.md)
 for the component design and [the protocol specification](protocol/specification/klyndro-protocol-v1.md)
 for the contract between the two apps.
 

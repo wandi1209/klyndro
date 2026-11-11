@@ -1,7 +1,7 @@
 # Compatibility matrix
 
 Last updated: 2026-11-11 (M2). Only rows marked `PASS` have been executed. On-device M2 runs
-(pairing, clipboard) are **BLOCKED** — the test device is detached.
+(pairing, reconnect, clipboard) were executed on the Redmi Note 13 5G; see the HyperOS table below.
 
 ## macOS
 
@@ -35,9 +35,9 @@ Notes:
 | Android 17 | 37 | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | `compileSdk` only |
 
 Build verification (host, no device required): `:app:assembleDebug`, `:app:testDebugUnitTest`
-(102 tests) and `:app:assembleDebugAndroidTest` all pass. `:app:connectedDebugAndroidTest`
-requires an attached, unlocked device and has **not** been re-run since the device was detached;
-the last full on-device run was the 7-test M1 suite (**PASS**).
+(102 tests) and `:app:assembleDebugAndroidTest` all pass. On-device, the full instrumented suite
+(11 tests across 5 classes) passed via `am instrument` with the app in front. Gradle's
+`connectedDebugAndroidTest` was only re-run for the trust-store class (3 tests, **PASS**).
 
 ## OEM skin
 
@@ -55,8 +55,13 @@ the last full on-device run was the 7-test M1 suite (**PASS**).
 | Keystore-backed identity | Works. Reloading the identity returns the same fingerprint. |
 | Dark theme | Follows the system; the custom light/dark palettes render correctly. |
 | Autostart / battery restrictions | **Not yet exercised** (no background service exists). |
-| Clipboard read/write while focused (M2) | **BLOCKED** — `AndroidClipboardInstrumentedTest` (launches `MainActivity` for focus, write→read round trip, `EXTRA_IS_SENSITIVE` detection) is written and compiles, but has not run: the device is detached. |
-| macOS ↔ Android pairing over the LAN (M2) | **FAIL** once, then **BLOCKED** — a single end-to-end attempt showed `internal` on the phone; root cause undiagnosed. `KlyndroPairing` logging is in place for the next attached session. |
+| Clipboard access from a **non-focused** caller | **Denied**, as documented. `logcat`: `ClipboardService: Denying clipboard access to id.my.wandidev.klyndro, application is not in focus nor is it a system service`. The instrumented test thread is not the focused window even while `MainActivity` is on screen, so it failed until the calls ran inside `ActivityScenario.onActivity`. |
+| Clipboard read/write from the focused Activity (M2) | **PASS** — write then read returns the text; `EXTRA_IS_SENSITIVE` is readable from `ClipDescription.extras` only when set through a fresh `PersistableBundle`. |
+| `ActivityScenario.launch` for a second test class in one run | **Unreliable on HyperOS.** A second launch stalled for tens of seconds. Keep clipboard checks in one launch per run. |
+| `adb shell cmd clipboard` / `service call clipboard` | Not usable to seed the clipboard: `cmd clipboard` has no implementation and `service call` returns a parcel, not a write. A real copy in another app is needed for end-to-end tests. |
+| macOS ↔ Android pairing over the LAN (M2) | **PASS.** The Mac needed to advertise an IPv4 address in its TXT record: NSD resolved only a link-local `fe80::…%wlan0` address, which is unreachable. |
+| Phone and Mac on different subnets | The phone was on `192.168.21.x` and the Mac on `192.168.23.x`; TCP and ICMP still worked, so mDNS plus a routed LAN is sufficient for this setup. |
+| USB debugging path | `adb reverse tcp:47823 tcp:47823` makes `127.0.0.1:47823` reach the Mac. It disappears when the adb server restarts, which is why a stored `127.0.0.1` address goes stale. |
 
 ## External tools
 

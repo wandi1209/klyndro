@@ -1,9 +1,9 @@
 # Verification status
 
 The single source of truth for what has actually been executed. Last updated: **2026-11-11**
-(M2). Clipboard sync is now implemented on both platforms and verified by the host/unit suites;
-the first on-device pairing attempt failed and, with the device now detached, all live
-Mac↔phone verification is **BLOCKED**.
+(M2). Clipboard sync is implemented on both platforms and verified by the host/unit suites **and**
+on real hardware: pairing, pinned reconnect over Wi-Fi, and clipboard in both directions all ran
+against the Redmi Note 13 5G. Remaining M2 gaps are listed under "Still NOT TESTED".
 
 Device under test: Xiaomi Redmi Note 13 5G (`2312DRAABG`, codename `iron`), HyperOS 3.0
 (`OS3.0.3.0.VNQIDXM`), Android 15 (API 35), arm64-v8a, attached over USB as
@@ -32,35 +32,52 @@ wired into the live session, with responder pairing over the `klyndro://pair` de
 | M2-V6 | Android debug APK builds | `./gradlew :app:assembleDebug` | **PASS** — `BUILD SUCCESSFUL` |
 | M2-V7 | Android instrumented test APK compiles (clipboard + trust-store diagnostics, `ActivityScenario`, real `AndroidKeyStore` AES-GCM) | `./gradlew :app:assembleDebugAndroidTest` | **PASS** — `AndroidClipboardInstrumentedTest.class` + `EncryptedTrustStoreInstrumentedTest.class` produced |
 
-### On-device verification — BLOCKED (device detached)
+### On-device verification — executed on the Redmi Note 13 5G
 
-| # | Claim | Result | Why |
+| # | Claim | Evidence | Result |
 | --- | --- | --- | --- |
-| M2-D1 | macOS ↔ Android pairing over a real network | **FAIL** (observed once) → diagnosis **BLOCKED** | One end-to-end attempt showed status `internal` on the phone before the device was detached; root cause not yet determined. Failure logging was added under tag `KlyndroPairing` in `PairingRunner` (peer-key-unavailable, validation, window, persist, and generic-exception paths) to capture it on the next attached session. |
-| M2-D2 | Clipboard instrumented test on HyperOS (focused write→read round trip, `EXTRA_IS_SENSITIVE` detection) | **BLOCKED** | `AndroidClipboardInstrumentedTest` is written and compiles; running `connectedDebugAndroidTest` needs an attached, unlocked device. |
-| M2-D3 | Android → Mac clipboard (app foreground) | **BLOCKED** | Requires a successful pairing session plus an attached device. |
-| M2-D4 | Mac → Android clipboard (app foreground) | **BLOCKED** | Same. |
-| M2-D5 | Explicit "Send text to Mac" fallback path | **BLOCKED** | Same. |
-| M2-D6 | Sealed trust-store round trip on HyperOS (real `AndroidKeyStore` AES-256-GCM seal/open/reload) | **BLOCKED** | `EncryptedTrustStoreInstrumentedTest` written + compiles; isolates the `trustStore.upsert` path that `persistAndFinish` runs — a prime suspect for M2-D1's `internal`. Needs an attached device. |
+| M2-D1 | macOS ↔ Android pairing over a real network, six-digit code compared on both devices | Phone showed the code dialog; "Codes match" persisted the peer on both sides. Mac login keychain item `id.my.wandidev.klyndro.trust` and the phone's `paired_peers_sealed` both held the peer afterwards | **PASS** — the earlier `internal` failure had three causes, all fixed: listener rebinding raced `Address already in use`; `startAccepted()` handed the transport to `PairingRunner` before TLS was `.ready`; the Mac advertised only link-local IPv6 |
+| M2-D2 | Clipboard instrumented test on HyperOS (focused write→read, `EXTRA_IS_SENSITIVE`) | `AndroidClipboardInstrumentedTest`, run via `am instrument` with the Activity in front | **PASS** — only when the operation runs on the focused Activity's UI thread. From the test thread HyperOS logs `Denying clipboard access … application is not in focus` |
+| M2-D3 | Android → Mac clipboard from a real copy made in another app (WhatsApp), no button pressed | Copy in WhatsApp, return to Klyndro: counter `Sent to Mac` 5 → 6 and `pbpaste` returned the copied text | **PASS** |
+| M2-D4 | Mac → Android clipboard | `pbcopy` on the Mac: `Received from Mac` incremented and the in-app preview matched | **PASS** |
+| M2-D5 | Explicit "Send text to Mac instead" path | Typed text sent; `pbpaste` changed from a reset marker to the typed text | **PASS** |
+| M2-D6 | Sealed trust-store round trip on HyperOS (`AndroidKeyStore` AES-256-GCM) | `EncryptedTrustStoreInstrumentedTest`, 3 tests | **PASS** — exonerated: the trust store was not the cause of the earlier `internal` |
+| M2-D7 | Pinned reconnect over Wi-Fi after the USB tunnel is gone | Stored address `127.0.0.1` refused; the mDNS fallback dialled the Mac's LAN IPv4 and the phone reached `Status: connected` | **PASS** |
+| M2-D8 | Loop suppression on a real network | Copy on Mac: phone `Received` 3 → 4, `Sent` stayed 6 for 14 s, Mac clipboard unchanged. Reverse direction: `Sent` stayed 6 for 16 s after the Mac received the phone's text | **PASS** |
+| M2-D9 | Full on-device instrumented suite | `am instrument` over all classes: 11 tests | **PASS** |
 
-### Next attached-device procedure (M2-D1 … M2-D6)
+### Still NOT TESTED (M2 scope)
 
-1. Keep the phone unlocked (`adb shell settings put global stay_on_while_plugged_in 2`).
-2. **First isolate the trust store**: run `./gradlew :app:connectedDebugAndroidTest
-   -Pandroid.testInstrumentationRunnerArguments.class=id.my.wandidev.klyndro.EncryptedTrustStoreInstrumentedTest`
-   and read the results XML. If `sealedRoundTripSurvivesReloadWithTheSameKeystoreKey` fails, the
-   `internal` in step M2-D1 is the `AndroidKeyStore` AES-GCM path, not the pairing protocol.
-3. Run the macOS app from a DEBUG build with `launchctl setenv KLYNDRO_AUTOCONFIRM_PAIRING 1`
-   so the responder auto-confirms the six digits.
-4. On the phone: Devices tab → Start connection → wait for the Mac to appear → Pair.
-5. On the Mac: `open klyndro://pair` to open the 60 s window; on the phone tap Pair, then
-   "Codes match".
-6. If the phone shows `internal` again, read `adb logcat -d | grep KlyndroPairing` to identify
-   which path failed (peer-key-unavailable, validation, window, persist, or generic exception).
-7. Once connected: `printf 'MAC-TEXT' | pbcopy` on the Mac must raise the phone's
-   "Received from Mac" counter; the phone's "Send text to Mac" field must arrive via `pbpaste`.
-8. Run the full `./gradlew :app:connectedDebugAndroidTest` and read
-   `app/build/outputs/androidTest-results/connected/debug/*.xml` (never trust the exit code).
+| Area | Why it matters |
+| --- | --- |
+| Phone app in background / screen off | Designed to stop syncing (Android grants clipboard only to the focused app). The in-app message has not been checked against the real behaviour |
+| HyperOS autostart and battery restrictions | Belongs to M4; nothing exercises process death yet |
+| Reconnect after Mac sleep/wake or a Wi-Fi change | No automatic reconnect loop exists yet (M4); a manual Stop/Start was used |
+| Sensitive-clip gating end to end | Unit-tested; the on-device test only proves the flag is readable |
+| Clipboard content over 256 KiB | Unit-tested only |
+
+### Known defects found during device verification (open)
+
+- The pairing sheet on macOS cannot be dismissed after a failure was fixed in code, but the fix was
+  only exercised by rebuilding and re-pairing, not by a UI test.
+- Stored `lastHost` is whatever address was used to pair. A USB pairing stores `127.0.0.1`, which
+  goes stale; the reconnect fallback masks this rather than correcting the stored address.
+- On macOS the paired phone's stored `lastHost`/`lastPort` is the phone's ephemeral source port and
+  is not usable for dialling. The Mac never dials today, so it is harmless, but it is wrong data.
+- Stopping the Android service clears discovery, and the next start dials before mDNS resolves.
+  The 20 s poll added in `startConnecting()` covers it; a persistent browse would be cleaner.
+
+### Re-running the device checks
+
+1. Keep the phone unlocked (`adb shell settings put global stay_on_while_plugged_in 2`); HyperOS
+   refuses installs while locked.
+2. Run the macOS app from a DEBUG build with `launchctl setenv KLYNDRO_AUTOCONFIRM_PAIRING 1`.
+3. Phone: Devices tab → wait for the Mac to appear → Pair. Mac: `open klyndro://pair` first (60 s).
+4. Once `Status: connected`: `pbcopy` on the Mac must raise `Received from Mac`; text copied in
+   another app must arrive via `pbpaste` while Klyndro is on screen.
+5. Instrumented tests: `am instrument -w id.my.wandidev.klyndro.test/androidx.test.runner.AndroidJUnitRunner`
+   with the app in front. If you use Gradle's `connectedDebugAndroidTest` instead, read
+   `app/build/outputs/androidTest-results/connected/debug/*.xml`; the exit code can lie.
 
 ## M1 — secure connectivity
 
@@ -140,12 +157,12 @@ Android side to hold a connection, which does not exist until M2.
 | Device identity (key + self-signed cert) | Yes (both platforms) | **PASS** on macOS and on device (Keystore) |
 | Pin policy / fingerprint pinning | Yes (both platforms) | **PASS** (unit + real TLS loopback on both stacks) |
 | Mutual TLS 1.3 transport | Yes (both platforms) | **PASS** (macOS loopback, JVM loopback, on-device loopback) |
-| Trust store | Yes (macOS Keychain; Android `EncryptedTrustStore` = SharedPreferences + `KeystoreSecretBox` AES-256-GCM, key in AndroidKeyStore) | **PASS** (macOS Keychain; Android JVM codec) — Android on-device persistence **BLOCKED** (device detached) |
+| Trust store | Yes (macOS Keychain; Android `EncryptedTrustStore` = SharedPreferences + `KeystoreSecretBox` AES-256-GCM, key in AndroidKeyStore) | **PASS** (macOS Keychain; Android JVM codec; Android on-device seal/open/reload, 3 tests) |
 | Session handshake (`hello`/`hello.ack`) | Yes (both platforms) | **PASS** (in-memory + TLS loopback) |
-| Pairing (SAS, window, rate limit, persistence) | Yes (both platforms; macOS responder UI + `klyndro://pair`, Android initiator + Devices screen) | **PASS** (logic + in-memory end-to-end both platforms); first real-network attempt **FAIL** (`internal`), diagnosis **BLOCKED** (device detached) |
+| Pairing (SAS, window, rate limit, persistence) | Yes (both platforms; macOS responder UI + `klyndro://pair`, Android initiator + Devices screen) | **PASS** (logic + in-memory end-to-end both platforms, and a real Mac↔phone pairing). Window expiry and rate limit with real devices **NOT TESTED** |
 | Discovery | macOS advert+browse; Android NSD publish+browse | macOS advert **PASS** (`dns-sd -L`); Android publish **PASS** (seen by the Mac) |
 | Reconnection wiring | Policy + state machine only | **NOT TESTED** (M4) |
-| Clipboard sync | Yes (both platforms: engines + macOS `ClipboardSync`/`PasteboardMonitor`, Android `AndroidClipboard` + foreground loop + explicit send) | **PASS** (unit + cross-peer integration on macOS); on-device **BLOCKED** (device detached) |
+| Clipboard sync | Yes (both platforms: engines + macOS `ClipboardSync`/`PasteboardMonitor`, Android `AndroidClipboard` + foreground loop + explicit send) | **PASS** (unit + cross-peer integration, and both directions on the Redmi Note 13 5G while the app is on screen). Background / screen-off **NOT TESTED** |
 | Mirroring, notifications, files | No | **NOT TESTED** (M3/M5) |
 
 ## Known gaps at M1

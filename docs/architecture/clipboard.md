@@ -4,10 +4,10 @@ Clipboard sync is the highest-value feature (F02) and the one most constrained b
 platform. This document records what Android actually permits, what Klyndro plans to do,
 and what remains unverified.
 
-**Status: implemented on both platforms (M2). Clipboard logic is verified by the host/unit suites
-(148 Swift tests incl. a two-peer integration test; 102 Android JVM tests incl. the sync engine).
-No clipboard path has yet run on a device — the first on-device pairing attempt failed and the
-device is now detached, so all live verification is BLOCKED. See
+**Status: implemented on both platforms (M2) and verified on a Redmi Note 13 5G (HyperOS 3,
+Android 15) in both directions while the Android app is on screen. Logic is also covered by the
+host suites (148 Swift tests incl. a two-peer integration test; 102 Android JVM tests). Background
+and screen-off behaviour, HyperOS autostart, and reconnect after sleep are NOT TESTED. See
 [verification status](../testing/verification-status.md#m2--clipboard-synchronization).**
 
 ## The constraint
@@ -111,11 +111,12 @@ Logic is proven by the unit/integration suites; the live paths still need an att
 | --- | --- |
 | Loop suppression, dedup, echo window, own-origin, stale, sensitive gate | **PASS** — `ClipboardSyncIntegrationTests` (macOS, two peers) + `ClipboardSyncEngineTest` (Android, 14) |
 | Loop suppression across reconnect (`resetSessionState`) | **PASS** — unit-tested both platforms |
-| Focused clipboard write→read round trip on HyperOS | **BLOCKED** (device detached) — `AndroidClipboardInstrumentedTest` written + compiles |
-| `EXTRA_IS_SENSITIVE` detection on API 33+ (HyperOS) | **BLOCKED** (device detached) — same test, `assumeTrue(API 33+)` |
-| Android app in foreground: copy → macOS pasteboard | **BLOCKED** (needs a paired session + device) |
-| macOS copy → Android app in foreground | **BLOCKED** (needs a paired session + device) |
-| Android app backgrounded, screen off | **BLOCKED** (device detached); expected to stop — Tier B is foreground-only by design |
-| HyperOS autostart + battery exemption behaviour | **BLOCKED** (device detached); M4 |
+| Focused clipboard write→read round trip on HyperOS | **PASS** — only from the focused Activity's UI thread; a test thread is denied (`application is not in focus`) |
+| `EXTRA_IS_SENSITIVE` detection on API 33+ (HyperOS) | **PASS** — flag readable from `ClipDescription.extras` when set via a `PersistableBundle` |
+| Android app in foreground: real copy in WhatsApp → macOS pasteboard | **PASS** — `Sent to Mac` 5 → 6, `pbpaste` matched |
+| macOS copy → Android app in foreground | **PASS** — `Received from Mac` incremented, preview matched |
+| Loop suppression on a real network | **PASS** — counters stayed flat for 14–16 s after each transfer, no echo |
+| Android app backgrounded, screen off | **NOT TESTED** — expected to stop; Tier B is foreground-only by design |
+| HyperOS autostart + battery exemption behaviour | **NOT TESTED** — M4 |
 | Share-sheet send path / Quick Settings tile | **NOT TESTED** — not built (deferred) |
 | Klyndro IME background capture (Tier C) | **NOT TESTED** — not built |
