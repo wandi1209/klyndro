@@ -1,0 +1,21 @@
+{
+  "description": "Pairing-code (SAS) vector computed independently with Python hashlib, not with either implementation. Both the Swift and Kotlin test suites must reproduce it exactly, which is what proves the two apps show the same six digits.",
+  "protocol_version": 1,
+  "spec": "protocol/specification/klyndro-protocol-v1.md §7 step 4",
+  "vectors": [
+    {
+      "name": "ordering by fingerprint, a first",
+      "peer_a": {
+        "fingerprint": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+        "nonce": "00112233445566778899aabbccddeeff"
+      },
+      "peer_b": {
+        "fingerprint": "1f0a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8",
+        "nonce": "fedcba9876543210ffeeddccbbaa9900"
+      },
+      "code": "090432",
+      "digest": "7cff0f8093b5b9a1b08c665278e4e406addc39a6ce51d9148eab41617d4b6ff4",
+      "swapped_must_match": true
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "b8a7c6d5-e4f3-4a2b-9c8d-7e6f5a4b3c2d",
+  "type": "notification.post",
+  "ts": 1762800030000,
+  "body": {
+    "key": "com.example.messenger:4021:1762800030000",
+    "package": "com.example.messenger",
+    "app_name": "Example Messenger",
+    "title": "Fixture notification",
+    "text": "Synthetic notification body for conformance testing.",
+    "posted_at": 1762800030000,
+    "sensitive": false
+  }
+}

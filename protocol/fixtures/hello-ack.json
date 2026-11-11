@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "7d4e1b02-9c33-4f58-a6d1-2e8b4c7f9a10",
+  "type": "hello.ack",
+  "ts": 1762800000042,
+  "body": {
+    "device_id": "0f9e8d7c6b5a4938",
+    "device_name": "Klyndro Test Mac",
+    "platform": "macos",
+    "app_version": "0.1.0",
+    "protocol_version": 1,
+    "capabilities": ["clipboard", "notifications", "file-transfer", "mirroring"],
+    "nonce": "9a7c5e3f1b2d4c6e8a0b2d4f6a8c0e2f",
+    "echo_nonce": "5b2f0c9e8d7a6b5c4d3e2f1a0b9c8d7e"
+  }
+}

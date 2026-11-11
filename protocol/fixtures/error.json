@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "d1c2b3a4-f5e6-4d7c-8b9a-0f1e2d3c4b5a",
+  "type": "error",
+  "ts": 1762800040000,
+  "body": {
+    "code": "payload.too_large",
+    "message": "clipboard payload exceeds 262144 bytes",
+    "ref_id": "c3d4e5f6-a7b8-49c0-8d1e-2f3a4b5c6d7e"
+  }
+}

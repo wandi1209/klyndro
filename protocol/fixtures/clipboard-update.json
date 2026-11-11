@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "id": "c3d4e5f6-a7b8-49c0-8d1e-2f3a4b5c6d7e",
+  "type": "clipboard.update",
+  "ts": 1762800020000,
+  "body": {
+    "content_type": "text/plain",
+    "text": "klyndro fixture text",
+    "hash": "ff473bda8bf727f23b9f39343077686204f0e4c6ef92435ac8a4331f6bd62710",
+    "change_count": 12,
+    "origin_id": "a1b2c3d4e5f60718",
+    "sensitive": false
+  }
+}

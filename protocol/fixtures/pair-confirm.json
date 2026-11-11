@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "5c8d2e3f-4051-4b62-97c8-d9e0f1a2b3c4",
+  "type": "pair.confirm",
+  "ts": 1762800103000,
+  "body": {
+    "fingerprint": "1f0a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8",
+    "nonce": "00112233445566778899aabbccddeeff",
+    "sas_digest": "9f2b1c4d6e8a0b2c4d6e8a0b2c4d6e8a0b2c4d6e8a0b2c4d6e8a0b2c4d6e8a0b"
+  }
+}

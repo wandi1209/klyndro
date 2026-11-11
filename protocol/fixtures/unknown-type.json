@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "f0e1d2c3-b4a5-4697-8877-665544332211",
+  "type": "future.capability",
+  "ts": 1762800050000,
+  "body": {
+    "something_new": true,
+    "nested": { "still": "ignored" }
+  }
+}
