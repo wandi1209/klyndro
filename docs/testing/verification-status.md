@@ -13,6 +13,24 @@ Vocabulary: `PASS` executed and observed working · `FAIL` executed and observed
 `BLOCKED` cannot execute (external constraint) · `NOT TESTED` implemented/designed but
 unverified.
 
+## M3 — screen mirroring (scrcpy)
+
+USB mirroring works from the app on the Redmi Note 13 5G. Full table with evidence is in
+[mirroring.md](../architecture/mirroring.md#verification-results).
+
+| # | Claim | Result |
+| --- | --- | --- |
+| M3-V1 | 19 new unit/process tests (parser, argument builder, ring buffer, state machine with fake child scripts) | **PASS** — suite is now 167 tests in 25 suites |
+| M3-D1 | Start from the app over USB; scrcpy is a child of Klyndro | **PASS** |
+| M3-D2 | Mac mouse and keyboard control the phone | **PASS** — tab switched by click; `hi` typed into a phone field |
+| M3-D3 | Rotate, resize | **PASS** |
+| M3-D4 | Stop and quit leave no scrcpy or scrcpy-server process | **PASS** |
+| M3-D5 | adb lost mid-session: process cleaned up, app survives | **PASS** (UI failure text NOT TESTED) |
+| M3-N1 | Fullscreen | **NOT VERIFIED** |
+| M3-N2 | Screen-off mode | **NOT VERIFIED** — needs someone to look at the phone |
+| M3-N3 | Wireless mirroring and `adb pair` | **NOT TESTED** — opens an adb port, needs an explicit decision |
+| M3-N4 | Scoping mirroring to Klyndro-paired devices | **NOT MET** — adb serial is not a Klyndro device ID |
+
 ## M2 — clipboard synchronization
 
 Implemented on both platforms: the Android foreground service + pairing/connect flow, the

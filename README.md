@@ -23,7 +23,7 @@ notifications, and file transfer.
 | M0 | Research, architecture, protocol spec, repository + app skeletons, build/test commands | **Complete** |
 | M1 | Discovery, secure pairing, authentication, connection lifecycle | **Complete** — verified on Mac + Redmi Note 13 5G |
 | M2 | Bidirectional clipboard | **Verified on device** while the Android app is on screen; background behaviour NOT TESTED |
-| M3 | Screen mirroring via scrcpy | Not started |
+| M3 | Screen mirroring via scrcpy | **USB verified** (control, rotate, resize, clean stop); wireless, fullscreen, screen-off NOT verified |
 | M4 | Login item, menu bar integration, reconnect, Android service lifecycle | Not started |
 | M5 | Notifications, file transfer | Not started |
 | M6 | Release engineering, packaging, security review | Not started |
@@ -36,7 +36,7 @@ In priority order. Pairing and clipboard work today; the rest are designed, not 
 | --- | --- | --- |
 | Secure device identity and pairing | Self-signed P-256 identity, mutual TLS 1.3, pinned SPKI, six-digit SAS | **Verified on device** (macOS responder + Android initiator + UI) — real pairing and pinned reconnect over Wi-Fi |
 | Universal clipboard | Bidirectional text sync with loop suppression | **Verified on device** in both directions with loop suppression; foreground only (Android rule) |
-| Screen mirroring and control | Managed `scrcpy` process | Designed (M3) |
+| Screen mirroring and control | Managed `scrcpy` process | **USB verified**; wireless NOT tested |
 | Automatic reconnection | Bounded exponential backoff, network-change aware | Designed (M4) |
 | Notification forwarding | `NotificationListenerService` → macOS notifications | Designed (M5) |
 | File transfer | Direct local-network transfer with integrity checks | Designed (M5) |

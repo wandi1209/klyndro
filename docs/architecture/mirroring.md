@@ -1,8 +1,8 @@
 # Screen mirroring
 
-**Status: not implemented (M3).** This is the integration plan for `scrcpy`, verified
-against the copy installed on the development machine: **scrcpy 5.0.1**, `adb` 1.0.41
-(platform-tools 36.0.2).
+**Status: USB mirroring implemented and verified on a Redmi Note 13 5G (M3).** Wireless
+mirroring, screen-off mode, and fullscreen are NOT VERIFIED; see the table at the end. Checked
+against **scrcpy 5.0.1** and `adb` 1.0.41 (platform-tools 36.0.2).
 
 ## Why scrcpy as an external process
 
@@ -92,15 +92,54 @@ user's own installation. Klyndro's own MIT licence and the attribution section i
 record this. If Klyndro ever bundles scrcpy (e.g. for a one-click install), the Apache 2.0
 obligations — including NOTICE propagation — become Klyndro's and must be handled explicitly.
 
-## Verification plan (all currently BLOCKED)
+## Implementation map
+
+| Piece | Where | Notes |
+| --- | --- | --- |
+| `adb devices -l` parser | `KlyndroKit/Mirroring/AdbDevices.swift` | Pure; `device`, `unauthorized`, `offline`, other states each carry a user message |
+| Argument builder | `KlyndroKit/Mirroring/MirroringOptions.swift` | Returns an `[String]` and an `ADB=` environment; out-of-range numbers are dropped |
+| Child process + state machine | `KlyndroKit/Mirroring/MirroringSession.swift` | State from `terminationHandler`, 200-line stderr ring, SIGTERM then SIGKILL after 5 s |
+| UI controller | `Klyndro/AppModel+Mirroring.swift` | Why Start is unavailable is always a sentence, never a disabled button with no reason |
+| Controls | `Views/MirroringSection.swift`, menu bar item | Device picker, view-only, screen-off, max size, FPS |
+| Scripted trigger | `klyndro://mirror/start`, `klyndro://mirror/stop` | Same pattern as `klyndro://pair`; used for the device checks below |
+
+Quitting the app calls `shutDown()`, which stops the child. Before M3 `shutDown()` existed but
+nothing called it.
+
+## Known limits
+
+- **adb serial is not a Klyndro device ID.** Nothing ties the device chosen for mirroring to a
+  phone paired with Klyndro, so any authorized adb device can be mirrored. The picker shows
+  every adb device; the requirement to scope ADB to trusted devices is **not met** yet. The
+  honest way to close it is matching on a value the phone reports over the authenticated Klyndro
+  session, which needs a protocol field and is future work.
+- **Wireless debugging is not enabled by Klyndro.** `adb tcpip` opens a debug port on the Wi-Fi
+  network until reboot or USB reconnect. That is a security-relevant change and must be an
+  explicit user action, so the UI does not do it silently.
+- scrcpy's modifier is left Alt or left Super. `MOD+Left` rotates, `F11` toggles fullscreen.
+
+## Verification results
+
+Device: Redmi Note 13 5G, HyperOS 3, Android 15, USB. Control and window checks drove the real
+scrcpy window with synthesized mouse and key events.
 
 | Test | Status |
 | --- | --- |
-| Detect adb and scrcpy, display versions | `PASS` (unit tests + diagnostics UI) |
-| Start mirroring over USB | BLOCKED (no device) |
-| Control the phone with Mac keyboard/mouse | BLOCKED (no device) |
-| Resize / fullscreen / rotate | BLOCKED (no device) |
-| Wireless ADB first-time pairing | BLOCKED (no device) |
-| Screen-off mode restores correctly | BLOCKED (no device) |
-| Process survives network drop and is restarted | BLOCKED (no device) |
-| Clean shutdown on app quit (no orphan processes) | NOT TESTED |
+| Detect adb and scrcpy, display versions | **PASS** (unit tests + diagnostics UI) |
+| Parse `adb devices -l`, all states | **PASS** (5 unit tests) |
+| Argument builder, incl. hostile serial/title cannot add flags | **PASS** (5 unit tests) |
+| Process state machine: run, stop, quick failure, clean exit, double start, SIGTERM ignored then killed | **PASS** (6 tests against fake scripts) |
+| Start mirroring over USB from the app (`klyndro://mirror/start`) | **PASS** — scrcpy's parent is Klyndro, window titled `Klyndro — 2312DRAABG`, 440x1010 |
+| Mouse control | **PASS** — a click in the window switched the phone's tab from Permissions to Devices |
+| Keyboard control | **PASS** — typing `hi` in the window arrived in a phone text field |
+| Rotate | **PASS** — `Alt+Left` changed the window from 440x1010 to 977x472; `Alt+Right` returned it |
+| Resize | **PASS** — dragging a corner changed the window from 438x1005 to 461x1056, aspect kept |
+| Stop from the app leaves no process | **PASS** — 0 scrcpy and 0 scrcpy-server processes |
+| Quit the app while mirroring leaves no process | **PASS** — 0 scrcpy and 0 scrcpy-server processes after the app exited |
+| adb lost while mirroring (`adb kill-server`) | **PASS for process cleanup** — scrcpy exited and Klyndro stayed alive. The failure message shown in the UI was **NOT TESTED** |
+| Fullscreen (`F11`) | **NOT VERIFIED** — the window moved and changed z-order but kept its size; not enough to claim fullscreen |
+| Screen-off mode (`--turn-screen-off`) | **NOT VERIFIED** — scrcpy logged `Device display turned off`, but `dumpsys display` kept reporting `committedState ON`; whether the panel is dark needs a person looking at the phone |
+| Wireless mirroring (`--tcpip`) | **NOT TESTED** — needs an explicit decision to open an adb port |
+| First-time wireless pairing (`adb pair`) | **NOT TESTED** |
+| Restart after network drop | **NOT TESTED** — there is no auto-restart |
+| UI text for `unauthorized` / missing scrcpy | **NOT TESTED** on screen; the strings are unit-tested |
