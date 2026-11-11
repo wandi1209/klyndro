@@ -120,6 +120,10 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
 
     /** Called when the Activity becomes visible: the only time Android lets us touch the clipboard. */
     fun onResumed() {
+        // M4: automatically start the connection service when the user opens the app
+        if (!status.value.serviceRunning) {
+            startService()
+        }
         ensureEngine()
         refreshClipboardPreview()
         startClipboardLoop()

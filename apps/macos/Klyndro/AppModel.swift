@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import KlyndroKit
 import Network
@@ -59,6 +60,7 @@ final class AppModel {
     private var activeSession: PeerSession?
     private var clipboard: ClipboardSync?
     private var pasteboardMonitor: PasteboardMonitor?
+    private var pathMonitor: NWPathMonitor?
     private var tasks: [Task<Void, Never>] = []
 
     static let servicePort: UInt16 = 47_823
@@ -96,10 +98,13 @@ final class AppModel {
         await startListener(policy: pinnedPolicy())
         // The menu bar's mirroring item needs the toolchain result without opening the window.
         await probeToolchain()
+        startNetworkMonitoring()
+        registerSleepWakeNotifications()
     }
 
     func shutDown() {
         mirroring.stop()
+        stopNetworkMonitoring()
         tasks.forEach { $0.cancel() }
         tasks.removeAll()
         clipboard?.stop()
@@ -121,6 +126,44 @@ final class AppModel {
         try? trustStore.remove(id: peer.deviceID)
         refreshPeers()
         Task { await restartListenerIfNeeded() }
+    }
+
+    // MARK: - Sleep / Wake & Network Monitoring
+
+    private func startNetworkMonitoring() {
+        guard pathMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if path.status == .satisfied {
+                    NSLog("[Klyndro] network path satisfied, checking listener")
+                    await self.restartListenerIfNeeded()
+                }
+            }
+        }
+        let queue = DispatchQueue(label: "id.my.wandidev.klyndro.pathmonitor")
+        monitor.start(queue: queue)
+        self.pathMonitor = monitor
+    }
+
+    private func stopNetworkMonitoring() {
+        pathMonitor?.cancel()
+        pathMonitor = nil
+    }
+
+    private func registerSleepWakeNotifications() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                NSLog("[Klyndro] system woke from sleep, restarting listener")
+                await self.restartListenerIfNeeded()
+            }
+        }
     }
 
     /// Applies a preference change to the running session without requiring a reconnect.

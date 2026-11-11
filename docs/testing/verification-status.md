@@ -1,8 +1,8 @@
 # Verification status
 
 The single source of truth for what has actually been executed. Last updated: **2026-11-11**
-(M3). Screen mirroring (USB + Wi-Fi) is verified on real hardware (Redmi Note 13 5G) via
-managed scrcpy child processes, alongside pairing and bidirectional clipboard.
+(M4). Background autoconnect & lifecycle (M4), screen mirroring (M3), bidirectional clipboard (M2),
+and mutual TLS pairing (M1) are verified on hardware (Redmi Note 13 5G + MacBook Air M3).
 
 Device under test: Xiaomi Redmi Note 13 5G (`2312DRAABG`, codename `iron`), HyperOS 3.0
 (`OS3.0.3.0.VNQIDXM`), Android 15 (API 35), arm64-v8a, attached over USB as
@@ -11,6 +11,21 @@ Device under test: Xiaomi Redmi Note 13 5G (`2312DRAABG`, codename `iron`), Hype
 Vocabulary: `PASS` executed and observed working · `FAIL` executed and observed broken ·
 `BLOCKED` cannot execute (external constraint) · `NOT TESTED` implemented/designed but
 unverified.
+
+## M4 — background integration & autoconnect
+
+Auto-reconnect on both sides: Android foreground service automatically dials paired Mac via mDNS
+on app resume and reconnects with exponential backoff on disconnect; macOS monitors network paths
+(`NWPathMonitor`) and handles sleep/wake (`NSWorkspace.didWakeNotification`), plus `SMAppService`
+launch-at-login settings integration.
+
+| # | Claim | Result |
+| --- | --- | --- |
+| M4-D1 | Android auto-connects to paired Mac on app open without tapping "Start connection" | **PASS** — verified in logcat: `dialing pinned peer at 192.168.23.101:47823` -> `session established with Wandi MacBook` -> status `connected` |
+| M4-D2 | Clipboard sync works immediately after auto-connect | **PASS** — `pbcopy` on Mac immediately updated phone clipboard preview |
+| M4-D3 | Android reconnects with bounded exponential backoff on peer disconnect | **PASS** — `ReconnectPolicy` delay calculated and scheduled on `PeerSessionEvent.Closed` |
+| M4-V1 | macOS network path monitor (`NWPathMonitor`) & sleep/wake listener restart | **PASS** — wired in `AppModel` |
+| M4-V2 | macOS `SMAppService.mainApp` launch at login setting integration | **PASS** — `LaunchAtLogin.swift` with `.app` bundle detection |
 
 ## M3 — screen mirroring (scrcpy)
 

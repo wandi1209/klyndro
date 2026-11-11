@@ -1,3 +1,4 @@
+import KlyndroKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -25,8 +26,17 @@ struct SettingsView: View {
             }
 
             Section("Startup") {
-                LabeledContent("Launch at login") {
-                    Text("Available in M4")
+                Toggle("Launch at login", isOn: Binding(
+                    get: { LaunchAtLogin.shared.isEnabled },
+                    set: { enabled in
+                        try? LaunchAtLogin.shared.setEnabled(enabled)
+                    }
+                ))
+                .disabled(!LaunchAtLogin.shared.isAvailable)
+
+                if !LaunchAtLogin.shared.isAvailable {
+                    Text("Only available when running from an installed application bundle.")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }

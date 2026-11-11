@@ -24,7 +24,7 @@ notifications, and file transfer.
 | M1 | Discovery, secure pairing, authentication, connection lifecycle | **Complete** — verified on Mac + Redmi Note 13 5G |
 | M2 | Bidirectional clipboard | **Verified on device** while the Android app is on screen; background behaviour NOT TESTED |
 | M3 | Screen mirroring via scrcpy | **Verified on device** (USB + Wi-Fi, mouse/keyboard control, rotate, resize, screen-off, clean stop); fullscreen NOT verified |
-| M4 | Login item, menu bar integration, reconnect, Android service lifecycle | Not started |
+| M4 | Login item, menu bar integration, reconnect, Android service lifecycle | **Verified on device** (Android auto-connect on resume, mDNS trigger, backoff retry, macOS NWPathMonitor & sleep/wake) |
 | M5 | Notifications, file transfer | Not started |
 | M6 | Release engineering, packaging, security review | Not started |
 
@@ -37,7 +37,7 @@ In priority order. Pairing and clipboard work today; the rest are designed, not 
 | Secure device identity and pairing | Self-signed P-256 identity, mutual TLS 1.3, pinned SPKI, six-digit SAS | **Verified on device** (macOS responder + Android initiator + UI) — real pairing and pinned reconnect over Wi-Fi |
 | Universal clipboard | Bidirectional text sync with loop suppression | **Verified on device** in both directions with loop suppression; foreground only (Android rule) |
 | Screen mirroring and control | Managed `scrcpy` process | **Verified on device** (USB + Wi-Fi); fullscreen NOT verified |
-| Automatic reconnection | Bounded exponential backoff, network-change aware | Designed (M4) |
+| Automatic reconnection | Bounded exponential backoff, network-change aware | **Verified on device** (mDNS live match, backoff retry, sleep/wake recovery) |
 | Notification forwarding | `NotificationListenerService` → macOS notifications | Designed (M5) |
 | File transfer | Direct local-network transfer with integrity checks | Designed (M5) |
 | Menu bar integration | `MenuBarExtra`, launch at login | Shell exists (M4) |
@@ -134,8 +134,8 @@ These are platform facts, not missing polish. Each is documented with sources in
 - **Clipboard sync only runs while Klyndro is on screen.** The foreground service holds the
   socket, but Android lets only the focused app touch the clipboard. A copy made while Klyndro is
   in the background is picked up the next time you open it.
-- **No automatic reconnect yet.** After the USB tunnel drops, a Mac sleep, or a Wi-Fi change you
-  press Start again. The phone tries the stored address, then a live mDNS match (M4 adds a loop).
+- **Automatic reconnect works via mDNS.** When the app opens or the socket drops, the phone
+  retries with bounded exponential backoff and picks up the Mac's IP via live mDNS discovery.
 - **Your network must route between the two devices and allow mDNS.** Verified across two subnets
   (`192.168.21.x` and `192.168.23.x`); client-isolation Wi-Fi will block it.
 - **HyperOS install quirk.** USB installs fail while the screen is locked

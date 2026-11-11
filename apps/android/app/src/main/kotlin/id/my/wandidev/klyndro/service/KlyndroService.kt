@@ -29,6 +29,7 @@ import id.my.wandidev.klyndro.net.PairingRunner
 import id.my.wandidev.klyndro.net.PeerSession
 import id.my.wandidev.klyndro.net.PeerSessionEvent
 import id.my.wandidev.klyndro.net.PinPolicy
+import id.my.wandidev.klyndro.net.ReconnectPolicy
 import id.my.wandidev.klyndro.net.TlsClient
 import id.my.wandidev.klyndro.protocol.Capability
 import id.my.wandidev.klyndro.protocol.DeviceId
@@ -55,6 +56,8 @@ import kotlinx.coroutines.launch
 class KlyndroService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val reconnectPolicy = ReconnectPolicy()
+    private var reconnectAttempt = 0
     private var connectionJob: Job? = null
     private var identity: DeviceIdentity? = null
     private var trustStore: TrustStore? = null
@@ -329,6 +332,7 @@ class KlyndroService : Service() {
                         when (event) {
                             is PeerSessionEvent.Established -> {
                                 established = true
+                                reconnectAttempt = 0
                                 android.util.Log.i(TAG_CONNECT, "session established with ${event.info.name}")
                                 ConnectionRuntime.update {
                                     it.copy(
@@ -360,6 +364,18 @@ class KlyndroService : Service() {
                                     it.copy(phase = ConnectionStatus.Phase.IDLE, peerName = null)
                                 }
                                 updateNotification(getString(R.string.service_status_closed))
+                                // F04 / M4: trigger reconnect with backoff when the peer disconnects while the service is running.
+                                if (connectionJob?.isActive != true) {
+                                    val delaySecs = reconnectPolicy.delaySeconds(reconnectAttempt)
+                                    reconnectAttempt = minOf(reconnectAttempt + 1, 10)
+                                    android.util.Log.i(TAG_CONNECT, "scheduling reconnect in ${delaySecs}s")
+                                    scope.launch {
+                                        kotlinx.coroutines.delay((delaySecs * 1000).toLong())
+                                        if (connectionJob?.isActive != true) {
+                                            startConnecting()
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -378,6 +394,7 @@ class KlyndroService : Service() {
     /** Browses for Macs so the pairing screen can offer something to tap. */
     private fun startDiscovery() {
         if (discovery != null) return
+        ensureTrustStore()
         runCatching {
             val nsd = NsdDiscovery(this)
             discovery = nsd
@@ -393,6 +410,15 @@ class KlyndroService : Service() {
                             hostName = peer.hostName
                         )
                         ConnectionRuntime.setDiscovered(discovered.values.toList())
+                    }
+                    // M4 auto-connect: if idle/error and this peer is in trustStore, trigger reconnect
+                    val currentPhase = ConnectionRuntime.status.value.phase
+                    if (currentPhase == ConnectionStatus.Phase.IDLE || currentPhase == ConnectionStatus.Phase.ERROR) {
+                        val isPaired = trustStore?.peer(peer.deviceId.hex) != null
+                        if (isPaired && connectionJob?.isActive != true) {
+                            android.util.Log.i(TAG_CONNECT, "mDNS found paired peer ${peer.name}, auto-connecting")
+                            startConnecting()
+                        }
                     }
                 },
                 onError = { message ->
