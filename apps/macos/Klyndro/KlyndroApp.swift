@@ -12,6 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.model = model
     }
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let model = Self.model else { return }
+        Task { @MainActor in
+            await model.start()
+        }
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let model = Self.model else { return }
         for url in urls where url.scheme == "klyndro" {
@@ -26,12 +33,11 @@ struct KlyndroApp: App {
     @State private var model: AppModel
 
     init() {
-        let model = AppModel()
-        _model = State(initialValue: model)
-        // A menu bar agent must be listening before the user opens the menu.
-        Task {
-            await AppDelegate.setModel(model)
-            await model.start()
+        let m = AppModel()
+        _model = State(initialValue: m)
+        AppDelegate.setModel(m)
+        Task { @MainActor in
+            await m.start()
         }
     }
 
@@ -39,6 +45,10 @@ struct KlyndroApp: App {
         MenuBarExtra("Klyndro", systemImage: "link") {
             MenuBarView()
                 .environment(model)
+                .task {
+                    AppDelegate.setModel(model)
+                    await model.start()
+                }
         }
 
         Window("Klyndro", id: "main") {

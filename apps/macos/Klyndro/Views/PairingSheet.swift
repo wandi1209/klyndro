@@ -49,7 +49,7 @@ struct PairingSheet: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 380)
                 Button("Close") {
-                    Task { await model.cancelPairing() }
+                    model.dismissPairingSheet()
                 }
                 .keyboardShortcut(.defaultAction)
             } else {

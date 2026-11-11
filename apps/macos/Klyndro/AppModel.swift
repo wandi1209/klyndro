@@ -81,8 +81,10 @@ final class AppModel {
 
         do {
             identity = try DeviceIdentityStore.loadOrCreate(commonName: Self.localDeviceName())
+            print("[Klyndro] Identity loaded: \(identity?.fingerprint.shortHex ?? "nil")")
         } catch {
             identityError = String(describing: error)
+            print("[Klyndro] Identity error: \(error)")
             return
         }
 
@@ -166,13 +168,20 @@ final class AppModel {
         await pairingRunner?.confirm()
     }
 
+    func dismissPairingSheet() {
+        pairingFailure = nil
+        pairingPrompt = nil
+        Task { await cancelPairing() }
+    }
+
     func cancelPairing() async {
         await pairingRunner?.reject()
+        pairingFailure = nil
+        pairingPrompt = nil
         await closePairingWindow()
     }
 
     private func closePairingWindow() async {
-        guard isPairingWindowOpen else { return }
         isPairingWindowOpen = false
         pairingWindow = nil
         pairingPrompt = nil
@@ -191,8 +200,12 @@ final class AppModel {
     private func startListener(policy: PinPolicy) async {
         guard let identity else { return }
 
-        listener?.stop()
-        listener = nil
+        if let existing = listener {
+            existing.stop()
+            listener = nil
+            // Allow kernel to release the listening port before rebinding
+            try? await Task.sleep(for: .milliseconds(150))
+        }
         isListening = false
         listenerError = nil
 
@@ -215,8 +228,10 @@ final class AppModel {
             try await listener.start()
             self.listener = listener
             isListening = true
+            print("[Klyndro] Listener started on port: \(Self.servicePort), policy: \(policy)")
         } catch {
             listenerError = "Could not start listening: \(error)"
+            print("[Klyndro] Listener error: \(error)")
         }
     }
 

@@ -108,8 +108,9 @@ class SocketFrameTransport(
     }
 
     override fun peerFingerprint(): Fingerprint? {
-        val certificate = (socket as? SSLSocket)?.session?.peerCertificates?.firstOrNull()
-            as? X509Certificate ?: return null
+        val certificate = runCatching {
+            (socket as? SSLSocket)?.session?.peerCertificates?.firstOrNull() as? X509Certificate
+        }.getOrNull() ?: return null
         return PinPolicy.fingerprintOf(certificate)
     }
 

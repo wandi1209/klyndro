@@ -126,8 +126,24 @@ public actor PairingRunner {
                 return
             }
 
-            // Fresh TLS view of the peer. Absent means the transport cannot prove identity.
-            guard let reporting = transport as? PeerKeyReporting, let key = reporting.peerPublicKey else {
+            // Fresh TLS view of the peer. Retry briefly if TLS metadata hasn't populated yet.
+            guard let reporting = transport as? PeerKeyReporting else {
+                await finish(.failed(.internalError), result: nil)
+                return
+            }
+
+            var peerKey: Data? = reporting.peerPublicKey
+            if peerKey == nil {
+                for _ in 0..<10 {
+                    try? await Task.sleep(for: .milliseconds(50))
+                    if let k = reporting.peerPublicKey {
+                        peerKey = k
+                        break
+                    }
+                }
+            }
+
+            guard let key = peerKey else {
                 await finish(.failed(.internalError), result: nil)
                 return
             }

@@ -97,6 +97,13 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
                 title = stringResource(R.string.pairing_title),
                 body = stringResource(R.string.pairing_none_found)
             )
+            // Manual USB/Direct connect fallback (F01)
+            OutlinedButton(
+                onClick = { viewModel.pair("127.0.0.1", 47823, null) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Pair via USB Cable (127.0.0.1:47823)")
+            }
         } else {
             discovered.forEach { entry ->
                 OutlinedCard(modifier = Modifier.fillMaxWidth()) {
@@ -114,8 +121,13 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Button(onClick = { viewModel.pair(entry.host, entry.port, entry.hostName) }) {
-                            Text("Pair")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { viewModel.pair(entry.host, entry.port, entry.hostName) }) {
+                                Text("Pair")
+                            }
+                            OutlinedButton(onClick = { viewModel.pair("127.0.0.1", entry.port, null) }) {
+                                Text("USB")
+                            }
                         }
                     }
                 }

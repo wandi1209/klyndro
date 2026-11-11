@@ -114,6 +114,8 @@ class NsdDiscovery(context: Context) {
         val fingerprint = attribute("fp")?.let { Fingerprint.parse(it) } ?: return null
         if (attribute("proto") != Envelope.CURRENT_VERSION.toString()) return null
 
+        val hostFromTxt = attribute("ipv4")?.takeIf { it.isNotBlank() }
+
         return DiscoveredPeer(
             deviceId = deviceId,
             name = name,
@@ -121,7 +123,7 @@ class NsdDiscovery(context: Context) {
             capabilities = Capability.parse(
                 attribute("caps")?.split(",")?.map { it.trim() } ?: emptyList()
             ),
-            host = info.host?.hostAddress,
+            host = hostFromTxt ?: info.host?.hostAddress,
             port = info.port,
             hostName = info.host?.hostName
         )

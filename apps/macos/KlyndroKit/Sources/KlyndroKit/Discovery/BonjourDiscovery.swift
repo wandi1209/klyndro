@@ -102,19 +102,51 @@ public struct DiscoveredPeer: Sendable, Equatable, Identifiable {
     }
 
     /// TXT fields this device publishes for itself.
+    static func localIPv4Address() -> String? {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
+        defer { freeifaddrs(firstAddr) }
+
+        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+            let flags = Int32(ptr.pointee.ifa_flags)
+            let isUp = (flags & IFF_UP) == IFF_UP
+            let isLoopback = (flags & IFF_LOOPBACK) == IFF_LOOPBACK
+            guard isUp, !isLoopback else { continue }
+
+            let addr = ptr.pointee.ifa_addr.pointee
+            if addr.sa_family == UInt8(AF_INET) {
+                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                var sa = ptr.pointee.ifa_addr.pointee
+                if getnameinfo(&sa, socklen_t(ptr.pointee.ifa_addr.pointee.sa_len),
+                               &hostname, socklen_t(hostname.count),
+                               nil, 0, NI_NUMERICHOST) == 0 {
+                    let str = String(cString: hostname)
+                    if !str.isEmpty && !str.hasPrefix("127.") {
+                        return str
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
     public static func advertisementFields(
         deviceID: DeviceID,
         name: String,
         fingerprint: Fingerprint,
         capabilities: [Capability]
     ) -> [String: String] {
-        [
+        var fields: [String: String] = [
             "id": deviceID.hex,
             "name": String(name.prefix(HandshakeCodec.maximumDeviceNameBytes)),
             "proto": String(Envelope.currentVersion),
             "fp": fingerprint.hex,
             "caps": capabilities.map(\.rawValue).joined(separator: ",")
         ]
+        if let ipv4 = localIPv4Address() {
+            fields["ipv4"] = ipv4
+        }
+        return fields
     }
 }
 

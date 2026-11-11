@@ -129,8 +129,32 @@ public final class NWFrameTransport: FrameTransport, PeerKeyReporting, @unchecke
     ///
     /// Network.framework does not start accepted connections for you: without this, the peer's
     /// TLS ClientHello has nothing to complete against and the socket resets.
-    public func startAccepted() {
-        connection.start(queue: queue)
+    public func startAccepted() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let resumed = LockedFlag()
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    resumed.runOnce { continuation.resume() }
+                case .failed(let error):
+                    resumed.runOnce {
+                        continuation.resume(throwing: TransportError.failed(String(describing: error)))
+                    }
+                case .cancelled:
+                    resumed.runOnce {
+                        continuation.resume(throwing: TransportError.closed)
+                    }
+                case .waiting(let error):
+                    resumed.runOnce {
+                        continuation.resume(throwing: TransportError.failed(String(describing: error)))
+                    }
+                default:
+                    break
+                }
+            }
+            connection.start(queue: queue)
+        }
         startReceiving()
     }
 
@@ -327,8 +351,14 @@ public final class KlyndroListener: @unchecked Sendable {
 
             listener.newConnectionHandler = { [queue, onConnection] connection in
                 let transport = NWFrameTransport(connection: connection, queue: queue)
-                transport.startAccepted()
-                onConnection(transport)
+                Task {
+                    do {
+                        try await transport.startAccepted()
+                        onConnection(transport)
+                    } catch {
+                        transport.close()
+                    }
+                }
             }
 
             listener.start(queue: queue)
