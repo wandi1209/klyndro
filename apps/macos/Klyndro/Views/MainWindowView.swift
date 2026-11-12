@@ -38,7 +38,7 @@ struct MainWindowView: View {
                 .environment(model)
         }
         .sheet(isPresented: Binding(
-            get: { model.pairingPrompt != nil || model.pairingFailure != nil },
+            get: { model.isPairingWindowOpen || model.pairingPrompt != nil || model.pairingFailure != nil },
             set: { _ in }
         )) {
             PairingSheet()

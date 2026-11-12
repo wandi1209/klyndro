@@ -4,6 +4,7 @@ import SwiftUI
 /// Mirroring controls for the main window. The video window itself is scrcpy's.
 struct MirroringSection: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @State private var showingPairing = false
     @State private var pairingAddress = ""
     @State private var pairingCode = ""
@@ -45,6 +46,25 @@ struct MirroringSection: View {
                     Text(stateText(mirroring.state))
                         .font(.caption)
                         .foregroundStyle(stateColor(mirroring.state))
+
+                    Spacer()
+
+                    if model.isStandardMirroring {
+                        Button(role: .destructive) {
+                            Task { await model.stopStandardMirroring(reason: "user_stopped") }
+                        } label: {
+                            Label("Stop Standard Mirror", systemImage: "stop.circle")
+                        }
+                    } else {
+                        Button {
+                            openWindow(id: "standard-mirror")
+                            Task { await model.startStandardMirroring() }
+                        } label: {
+                            Label("Standard Mirror (No ADB)", systemImage: "rectangle.inset.filled.and.person.filled")
+                        }
+                        .disabled(!model.isConnected)
+                        .help("Mirror via MediaProjection over local TLS (no ADB or scrcpy needed)")
+                    }
                 }
 
                 if case .failed = mirroring.state, !mirroring.recentLog.isEmpty {

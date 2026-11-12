@@ -11,8 +11,12 @@
     <!-- Long-lived connection to a paired device: Android 14+ requires a declared type. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <!-- The service notification is required by the platform; the permission is user-granted. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Requested only when the user taps "Scan QR code" for pairing. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <!--
       Deliberately NOT declared:
@@ -48,7 +52,7 @@
         <service
             android:name=".service.KlyndroService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="connectedDevice|mediaProjection" />
 
         <!-- Notification Listener Service (M5) -->
         <service

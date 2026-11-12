@@ -224,6 +224,24 @@ holds a given adb device:
 - Unknown to older peers, so it is ignored there (§4 rule 5); an old phone simply never answers
   and mirroring is refused with a message.
 
+### 5.6 Standard mirroring without ADB (M7)
+
+For environments without `adb` or Developer Options (`ADR 0010`), the Mac and phone negotiate a
+dedicated pinned mutual-TLS 1.3 video stream over the existing JSON control channel:
+
+| Type | Status | Body |
+| --- | --- | --- |
+| `mirror.stream.start` | specified (M7) | `stream_id`, `port`, `codec`, `max_width`, `fps`, `bitrate` |
+| `mirror.stream.stop` | specified (M7) | `stream_id`, `reason` (optional) |
+
+- `stream_id` is a lowercase UUID identifying the media stream.
+- `port` is the TCP port (`1..65535`) on the Mac where a pinned mutual-TLS 1.3 listener is waiting.
+- `codec` is `"h264"` in v1.
+- `max_width` (`240..2160`), `fps` (`1..60`), and `bitrate` (`100_000..20_000_000` bps) bound encoder allocation.
+- On the media socket, Android sends the 36-byte ASCII `stream_id` followed by length-prefixed
+  packets (`uint32_be length | uint8 flags | int64_be pts_us | byte[] h264_annex_b`) where
+  `length` MUST be in `[9, 4194304]`, `flags` `0x01` = SPS/PPS config, `0x02` = keyframe, `0x00` = delta.
+
 ### 5.5 File transfer (M5)
 
 Implemented for local-network transfers using JSON envelope frames (`kind = 0x01`):

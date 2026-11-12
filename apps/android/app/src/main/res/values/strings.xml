@@ -32,6 +32,10 @@
     <string name="devices_manual_invalid">Enter a valid IPv4 address or hostname, with optional :port (1–65535).</string>
     <string name="devices_manual_pair">Pair</string>
     <string name="devices_manual_connect">Connect</string>
+    <string name="qr_scan_button">Scan QR code</string>
+    <string name="qr_scan_title">Scan Mac QR code</string>
+    <string name="qr_scan_hint">Point the camera at the QR code in Klyndro on your Mac.</string>
+    <string name="qr_camera_denied">Camera permission is needed to scan QR codes. You can still pair via mDNS or manual IP below.</string>
 
     <!-- Permissions -->
     <string name="permissions_title">Permissions</string>
@@ -61,7 +65,9 @@
     <string name="service_status_starting">Starting…</string>
     <string name="service_status_paired">Paired with %1$s</string>
     <string name="service_status_connected">Connected to %1$s</string>
+    <string name="service_status_mirroring">Sharing screen with Mac</string>
     <string name="service_status_closed">Connection closed</string>
+    <string name="standard_mirror_stop">Stop screen sharing</string>
     <string name="service_error_unreachable">Could not reach the Mac</string>
     <string name="service_error_no_address">No paired Mac with a known address</string>
     <string name="service_error_failed">Connection failed</string>

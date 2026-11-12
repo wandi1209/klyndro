@@ -1,8 +1,15 @@
 package id.my.wandidev.klyndro.ui.screens
 
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,6 +40,7 @@ import id.my.wandidev.klyndro.connection.ConnectionStatus
 import id.my.wandidev.klyndro.connection.DiscoveredEntry
 import id.my.wandidev.klyndro.net.ManualEndpoint
 import id.my.wandidev.klyndro.ui.InfoCard
+import id.my.wandidev.klyndro.ui.QrScannerDialog
 import id.my.wandidev.klyndro.ui.ScreenColumn
 import id.my.wandidev.klyndro.ui.ScreenHeader
 import id.my.wandidev.klyndro.ui.KlyndroViewModel
@@ -44,7 +53,36 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
     var manualText by remember { mutableStateOf("") }
     var manualAddress by remember { mutableStateOf("") }
     var manualAddressError by remember { mutableStateOf<String?>(null) }
+    var showQrScanner by remember { mutableStateOf(false) }
+    var cameraPermissionDenied by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val manualInvalidMessage = stringResource(R.string.devices_manual_invalid)
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        cameraPermissionDenied = !granted
+        if (granted) showQrScanner = true
+    }
+    val projectionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        val pending = status.pendingMirrorStream
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            viewModel.startStandardMirror(result.resultCode, data)
+        } else if (pending != null) {
+            viewModel.declineStandardMirror(pending.streamId)
+        }
+    }
+    LaunchedEffect(status.pendingMirrorStream?.streamId) {
+        val pending = status.pendingMirrorStream ?: return@LaunchedEffect
+        val manager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as? MediaProjectionManager
+        if (manager != null) {
+            projectionLauncher.launch(manager.createScreenCaptureIntent())
+        } else {
+            viewModel.declineStandardMirror(pending.streamId)
+        }
+    }
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -56,6 +94,31 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
             title = stringResource(R.string.pairing_title),
             subtitle = stringResource(R.string.pairing_body)
         )
+
+        Button(
+            onClick = {
+                val granted = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    cameraPermissionDenied = false
+                    showQrScanner = true
+                } else {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.qr_scan_button))
+        }
+        if (cameraPermissionDenied) {
+            Text(
+                text = stringResource(R.string.qr_camera_denied),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
 
         // Connection control. The service is what keeps the link alive after leaving the app.
         OutlinedCard(modifier = Modifier.fillMaxWidth()) {
@@ -99,6 +162,11 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
                             viewModel.startService()
                             started = true
                         }) { Text(stringResource(R.string.devices_start_service)) }
+                    }
+                    if (status.standardMirroring) {
+                        OutlinedButton(onClick = { viewModel.stopStandardMirror() }) {
+                            Text(stringResource(R.string.standard_mirror_stop))
+                        }
                     }
                 }
             }
@@ -275,6 +343,21 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
                 color = MaterialTheme.colorScheme.primary
             )
         }
+    }
+
+    if (showQrScanner) {
+        QrScannerDialog(
+            onScanned = { payload ->
+                showQrScanner = false
+                viewModel.pair(
+                    host = payload.host,
+                    port = payload.port,
+                    hostName = null,
+                    expectedFingerprint = payload.fingerprint.hex
+                )
+            },
+            onDismiss = { showQrScanner = false }
+        )
     }
 
     val code = status.pairingCode

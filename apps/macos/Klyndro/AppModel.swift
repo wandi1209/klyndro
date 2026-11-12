@@ -44,6 +44,7 @@ final class AppModel {
     private(set) var pairingPrompt: PairingPrompt?
     private(set) var pairingFailure: PairingFailure?
     private(set) var isPairingWindowOpen = false
+    private(set) var pairingQRPayload: PairingQRPayload?
 
     let mirroring = MirroringController()
 
@@ -51,6 +52,10 @@ final class AppModel {
     /// the UI never claims a file arrived when only the offer was sent.
     private(set) var fileSendProgress: Double?
     private(set) var fileSendMessage: String?
+    private(set) var standardMirrorReceiver: StandardMirrorReceiver?
+    private(set) var isStandardMirroring = false
+    private(set) var standardMirrorStatus = "Idle"
+    private var activeStandardStreamID: String?
     private var fileSender: FileTransferSender?
     private var mirrorProof: MirrorProofVerifier?
 
@@ -121,6 +126,9 @@ final class AppModel {
 
     func shutDown() {
         mirroring.stop()
+        standardMirrorReceiver?.stop()
+        standardMirrorReceiver = nil
+        isStandardMirroring = false
         stopNetworkMonitoring()
         tasks.forEach { $0.cancel() }
         tasks.removeAll()
@@ -202,6 +210,46 @@ final class AppModel {
         await mirroring.autoConnectIfNeeded()
     }
 
+    // MARK: - Standard mirroring (no ADB)
+
+    func startStandardMirroring() async {
+        guard let identity, let activeSession, !isStandardMirroring else { return }
+        let streamID = UUID().uuidString.lowercased()
+        let receiver = StandardMirrorReceiver(
+            streamID: streamID,
+            identity: identity,
+            policy: pinnedPolicy()
+        )
+        standardMirrorReceiver = receiver
+        activeStandardStreamID = streamID
+        isStandardMirroring = true
+        standardMirrorStatus = "Waiting for phone consent…"
+
+        do {
+            let port = try await receiver.start()
+            let startBody = MirrorStreamStartBody(streamID: streamID, port: port)
+            try await activeSession.send(startBody.toEnvelope())
+        } catch {
+            standardMirrorStatus = "Could not start stream: \(error.localizedDescription)"
+            receiver.stop()
+            standardMirrorReceiver = nil
+            activeStandardStreamID = nil
+            isStandardMirroring = false
+        }
+    }
+
+    func stopStandardMirroring(reason: String? = "user_stopped") async {
+        let streamID = activeStandardStreamID
+        standardMirrorReceiver?.stop()
+        standardMirrorReceiver = nil
+        activeStandardStreamID = nil
+        isStandardMirroring = false
+        standardMirrorStatus = "Stopped"
+        if let streamID, let activeSession {
+            try? await activeSession.send(MirrorStreamStopBody(streamID: streamID, reason: reason).toEnvelope())
+        }
+    }
+
     // MARK: - File transfer to the phone
 
     var canSendFile: Bool { fileSender != nil && fileSendProgress == nil }
@@ -262,12 +310,20 @@ final class AppModel {
     // MARK: - Pairing
 
     func beginPairing() async {
-        guard identity != nil else { return }
+        guard let identity else { return }
         let window = PairingWindow()
         pairingWindow = window
         isPairingWindowOpen = true
         pairingPrompt = nil
         pairingFailure = nil
+        pairingQRPayload = LocalNetworkAddress.preferredIPv4().map { host in
+            PairingQRPayload(
+                host: host,
+                port: Int(Self.servicePort),
+                fingerprint: identity.fingerprint,
+                name: Self.localDeviceName()
+            )
+        }
 
         // The listener must accept an unpinned certificate while the window is open, and only
         // then. Restarting it with a different policy is the smallest correct implementation.
@@ -300,6 +356,7 @@ final class AppModel {
         isPairingWindowOpen = false
         pairingWindow = nil
         pairingPrompt = nil
+        pairingQRPayload = nil
         pairingRunner = nil
         if identity != nil {
             await startListener(policy: pinnedPolicy())
@@ -491,6 +548,17 @@ final class AppModel {
             await NotificationCenterForwarder.shared.post(post)
         case .mirrorProof:
             await mirrorProof?.handleProof(envelope)
+        case .mirrorStreamStop:
+            if let stop = MirrorStreamStopBody.decode(envelope),
+               stop.streamID == activeStandardStreamID {
+                standardMirrorReceiver?.stop()
+                standardMirrorReceiver = nil
+                activeStandardStreamID = nil
+                isStandardMirroring = false
+                standardMirrorStatus = stop.reason == "user_declined"
+                    ? "Phone declined screen sharing."
+                    : "Stopped"
+            }
         case .fileAccept, .fileReject:
             await fileSender?.handleAnswer(envelope)
         case .fileOffer:
@@ -578,6 +646,10 @@ final class AppModel {
         case .closed:
             NSLog("[Klyndro] session closed")
             await stopClipboard()
+            standardMirrorReceiver?.stop()
+            standardMirrorReceiver = nil
+            activeStandardStreamID = nil
+            isStandardMirroring = false
             fileSender = nil
             mirrorProof = nil
             fileSendProgress = nil

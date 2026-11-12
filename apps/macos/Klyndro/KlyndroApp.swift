@@ -66,6 +66,12 @@ struct KlyndroApp: App {
         .defaultSize(width: 780, height: 600)
         .windowResizability(.contentMinSize)
 
+        Window("Phone Screen (Standard)", id: "standard-mirror") {
+            StandardMirrorView()
+                .environment(model)
+        }
+        .defaultSize(width: 420, height: 820)
+
         Settings {
             SettingsView()
                 .environment(model)

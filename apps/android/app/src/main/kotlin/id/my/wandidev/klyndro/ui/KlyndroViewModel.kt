@@ -181,12 +181,40 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
         port: Int,
         hostName: String? = null,
         persistHost: String? = null,
-        persistHostName: String? = null
+        persistHostName: String? = null,
+        expectedFingerprint: String? = null
     ) {
         val context = getApplication<Application>()
         context.startForegroundService(
-            KlyndroService.pairIntent(context, host, port, hostName, persistHost, persistHostName)
+            KlyndroService.pairIntent(
+                context = context,
+                host = host,
+                port = port,
+                hostName = hostName,
+                persistHost = persistHost,
+                persistHostName = persistHostName,
+                expectedFingerprint = expectedFingerprint
+            )
         )
+    }
+
+    fun startStandardMirror(resultCode: Int, data: android.content.Intent) {
+        val context = getApplication<Application>()
+        context.startForegroundService(KlyndroService.startStandardMirrorIntent(context, resultCode, data))
+    }
+
+    fun declineStandardMirror(streamId: String) {
+        ConnectionRuntime.setPendingMirrorStream(null)
+        viewModelScope.launch {
+            ConnectionRuntime.send(
+                id.my.wandidev.klyndro.protocol.MirrorStreamStopBody(streamId, "user_declined").toEnvelope()
+            )
+        }
+    }
+
+    fun stopStandardMirror() {
+        val context = getApplication<Application>()
+        context.startService(KlyndroService.stopStandardMirrorIntent(context))
     }
 
     fun confirmPairing(confirmed: Boolean) {

@@ -1,3 +1,5 @@
+import AppKit
+import CoreImage.CIFilterBuiltins
 import KlyndroKit
 import SwiftUI
 
@@ -53,11 +55,33 @@ struct PairingSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
             } else {
+                Text("Scan to pair")
+                    .font(.title3.weight(.semibold))
+
+                if let payload = model.pairingQRPayload,
+                   let uri = payload.encodeURI(),
+                   let qr = qrImage(for: uri) {
+                    Image(nsImage: qr)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 180, height: 180)
+                        .padding(12)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    Text("\(payload.host):\(payload.port)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
                 ProgressView("Waiting for a device…")
                     .frame(maxWidth: 320)
-                Text("Pairing window open for 60 seconds. Start pairing on the other device.")
+                Text("Open Klyndro on Android and tap Scan QR code (or pick this Mac under Devices). Window stays open for 60 seconds.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 Button("Cancel") {
                     Task { await model.cancelPairing() }
                 }
@@ -83,5 +107,16 @@ struct PairingSheet: View {
         case .alreadyPaired: return "These devices are already paired."
         case .internalError: return "An internal error stopped pairing. Check Diagnostics."
         }
+    }
+
+    private func qrImage(for text: String) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(text.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let rep = NSCIImageRep(ciImage: output)
+        let image = NSImage(size: rep.size)
+        image.addRepresentation(rep)
+        return image
     }
 }

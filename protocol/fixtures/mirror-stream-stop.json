@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "9c8b7a6d-5e4f-4b3a-8d2c-1f0e2d3c4b5a",
+  "type": "mirror.stream.stop",
+  "ts": 1762800005000,
+  "body": {
+    "stream_id": "11111111-2222-4333-8444-555555555555",
+    "reason": "user_stopped"
+  }
+}

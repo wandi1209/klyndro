@@ -80,6 +80,16 @@
       "file": "mirror-proof.json",
       "expect": "valid",
       "type": "mirror.proof"
+    },
+    {
+      "file": "mirror-stream-start.json",
+      "expect": "valid",
+      "type": "mirror.stream.start"
+    },
+    {
+      "file": "mirror-stream-stop.json",
+      "expect": "valid",
+      "type": "mirror.stream.stop"
     }
   ]
 }

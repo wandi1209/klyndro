@@ -36,6 +36,8 @@ unverified.
 | M6-S1 | `scripts/audit-repo.sh` guard checks | **PASS** — 9 checks |
 | M6-S2 | Security review | See [review checklist](../security/review-checklist.md): S9 **PASS**, S11 **PASS** (two-device hardware mismatch NOT TESTED), S12 **PASS (ad-hoc)** (Developer ID **BLOCKED**), S13 **PASS** |
 | M6-F01 | Manual IP[:port] entry (`F01`) and USB `lastHost` healing (`PeerAddressPolicy`) | **PASS** — 5 JVM tests (`ManualEndpointTest`) + verified on Redmi Note 13 5G (`hiam6hf6lfsshuif`): invalid `999.1.2.3` inline error shown, manual `Pair` (`192.168.23.101`, default `47823`) paired (`835 597`), manual `Connect` succeeded with `discovered=[]`, and USB pairing (`127.0.0.1:47823`, `742 723`) healed stored `lastHost` to `192.168.23.101:47823` on reconnect after `adb reverse --remove-all` |
+| M7-QR | QR code pairing (`PairingQRPayload`, `CoreImage` generator, `Camera2` + `zxing:core` scanner, TLS SPKI pre-pinning) | **PASS** — `PairingQRCodeTests` (Swift), `PairingQRCodeTest` + `QrLuminanceDecoderTest` (JVM), verified end-to-end on Redmi Note 13 5G (`hiam6hf6lfsshuif`) scanning QR from macOS `PairingSheet` |
+| M7-SM | PoC Standard Mirroring (No ADB: `MediaProjection` + `MediaCodec` H.264 → pinned TLS → `AVSampleBufferDisplayLayer`) | **PASS (unit & build)** — `MirrorStreamCodecTests` (Swift), `MirrorStreamMessagesTest` + `FixtureConformanceTest` (JVM), macOS Debug + Android Debug build OK; **NOT TESTED** end-to-end on physical hardware yet |
 
 ## M5 — notification forwarding & file transfer
 

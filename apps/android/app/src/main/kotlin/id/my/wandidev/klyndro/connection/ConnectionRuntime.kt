@@ -1,6 +1,7 @@
 package id.my.wandidev.klyndro.connection
 
 import id.my.wandidev.klyndro.protocol.Envelope
+import id.my.wandidev.klyndro.protocol.MirrorStreamStartBody
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,9 @@ data class ConnectionStatus(
     val clipboardAppliedCount: Int = 0,
     /** Present while a pairing code must be compared. */
     val pairingCode: String? = null,
+    /** Present when the Mac requested Standard Mirroring and needs user screen-capture consent. */
+    val pendingMirrorStream: MirrorStreamStartBody? = null,
+    val standardMirroring: Boolean = false,
     val lastError: String? = null
 ) {
     enum class Phase {
@@ -97,5 +101,13 @@ object ConnectionRuntime {
 
     fun clearPairingCode() {
         update { it.copy(pairingCode = null) }
+    }
+
+    fun setPendingMirrorStream(request: MirrorStreamStartBody?) {
+        update { it.copy(pendingMirrorStream = request) }
+    }
+
+    fun setStandardMirroring(active: Boolean) {
+        update { it.copy(standardMirroring = active) }
     }
 }

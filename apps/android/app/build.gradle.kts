@@ -87,6 +87,8 @@ dependencies {
     implementation(libs.bouncycastle.pkix)
     implementation(libs.bouncycastle.prov)
     implementation(libs.coroutines.core)
+    // Pure Java QR code decoder (Apache 2.0, offline, zero telemetry/Play Services).
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)

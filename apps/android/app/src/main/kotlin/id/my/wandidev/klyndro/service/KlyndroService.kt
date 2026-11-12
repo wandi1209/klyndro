@@ -1,5 +1,6 @@
 package id.my.wandidev.klyndro.service
 
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,9 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import id.my.wandidev.klyndro.BuildConfig
@@ -18,9 +22,11 @@ import id.my.wandidev.klyndro.connection.DiscoveredEntry
 import id.my.wandidev.klyndro.connection.MirrorProofResponder
 import id.my.wandidev.klyndro.discovery.NsdDiscovery
 import id.my.wandidev.klyndro.filetransfer.AndroidFileReceiver
+import id.my.wandidev.klyndro.mirror.StandardMirrorStreamer
 import id.my.wandidev.klyndro.crypto.AndroidKeyStoreIdentities
 import id.my.wandidev.klyndro.crypto.DeviceIdentity
 import id.my.wandidev.klyndro.crypto.EncryptedTrustStore
+import id.my.wandidev.klyndro.crypto.Fingerprint
 import id.my.wandidev.klyndro.crypto.KeystoreSecretBox
 import id.my.wandidev.klyndro.crypto.PairingWindow
 import id.my.wandidev.klyndro.crypto.TrustStore
@@ -37,6 +43,8 @@ import id.my.wandidev.klyndro.net.TlsClient
 import id.my.wandidev.klyndro.protocol.Capability
 import id.my.wandidev.klyndro.protocol.DeviceId
 import id.my.wandidev.klyndro.protocol.MessageType
+import id.my.wandidev.klyndro.protocol.MirrorStreamStartBody
+import id.my.wandidev.klyndro.protocol.MirrorStreamStopBody
 import id.my.wandidev.klyndro.protocol.Platform
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +74,9 @@ class KlyndroService : Service() {
     private var trustStore: TrustStore? = null
     private var session: PeerSession? = null
     private var fileReceiver: AndroidFileReceiver? = null
+    private var connectedPeerHost: String? = null
+    private var standardMirrorStreamer: StandardMirrorStreamer? = null
+    private var activeMirrorStreamId: String? = null
     private val mirrorProof by lazy {
         MirrorProofResponder(
             directory = { getExternalFilesDir(null) },
@@ -98,7 +109,18 @@ class KlyndroService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // `startForeground` must be called promptly or the system kills the service.
-        startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.service_status_starting)))
+        // Explicitly request only `connectedDevice` here so Android 14+ does not require
+        // `mediaProjection` consent until Standard Mirroring is actually started.
+        val startupNotification = buildNotification(getString(R.string.service_status_starting))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                startupNotification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, startupNotification)
+        }
 
         when (intent?.action) {
             ACTION_PAIR -> {
@@ -109,11 +131,12 @@ class KlyndroService : Service() {
                 val persistHost = rawPersistHost?.let {
                     preferReachableAddress(it, intent.getStringExtra(EXTRA_PERSIST_HOSTNAME))
                 }
+                val expectedFingerprint = intent.getStringExtra(EXTRA_EXPECTED_FINGERPRINT)
                 if (host != null && port > 0) {
                     ConnectionRuntime.update {
                         it.copy(serviceRunning = true, phase = ConnectionStatus.Phase.PAIRING)
                     }
-                    startPairing(host, port, persistHost)
+                    startPairing(host, port, persistHost, expectedFingerprint)
                 }
             }
 
@@ -129,6 +152,27 @@ class KlyndroService : Service() {
                 stopSelf()
             }
 
+            ACTION_START_STANDARD_MIRROR -> {
+                val resultCode = intent.getIntExtra(EXTRA_PROJECTION_RESULT_CODE, Activity.RESULT_CANCELED)
+                @Suppress("DEPRECATION")
+                val data = intent.getParcelableExtra<Intent>(EXTRA_PROJECTION_DATA)
+                val request = ConnectionRuntime.status.value.pendingMirrorStream
+                ConnectionRuntime.setPendingMirrorStream(null)
+                if (resultCode == Activity.RESULT_OK && data != null && request != null) {
+                    startStandardMirror(resultCode, data, request)
+                } else if (request != null) {
+                    scope.launch {
+                        ConnectionRuntime.send(
+                            MirrorStreamStopBody(request.streamId, "user_declined").toEnvelope()
+                        )
+                    }
+                }
+            }
+
+            ACTION_STOP_STANDARD_MIRROR -> {
+                stopStandardMirror(notifyPeer = true, reason = "user_stopped")
+            }
+
             else -> ConnectionRuntime.update { it.copy(serviceRunning = true) }
         }
 
@@ -142,7 +186,12 @@ class KlyndroService : Service() {
 
     // MARK: - Pairing
 
-    private fun startPairing(host: String, port: Int, persistHost: String? = null) {
+    private fun startPairing(
+        host: String,
+        port: Int,
+        persistHost: String? = null,
+        expectedFingerprint: String? = null
+    ) {
         connectionJob?.cancel()
         connectionJob = scope.launch {
             val local = ensureIdentity() ?: return@launch
@@ -150,13 +199,17 @@ class KlyndroService : Service() {
             val info = localInfo(local)
 
             try {
-                // Pairing accepts a peer we have not pinned yet; the window bounds it in time and
-                // the human compares the code before anything is persisted.
+                // QR pairing carries the Mac's SPKI fingerprint so TLS can pin it immediately;
+                // manual/mDNS pairing falls back to PAIRING_ONLY and relies on the 6-digit SAS.
+                val policy = expectedFingerprint
+                    ?.let { Fingerprint.parse(it) }
+                    ?.let { PinPolicy.pinned(setOf(it)) }
+                    ?: PinPolicy.PAIRING_ONLY
                 val transport = TlsClient.connect(
                     host = host,
                     port = port,
                     identity = local,
-                    policy = PinPolicy.PAIRING_ONLY,
+                    policy = policy,
                     scope = scope
                 )
 
@@ -387,8 +440,9 @@ class KlyndroService : Service() {
                             is PeerSessionEvent.Established -> {
                                 established = true
                                 reconnectAttempt = 0
+                                connectedPeerHost = host
                                 store.peer(event.info.deviceId.hex)?.let { existing ->
-                                    id.my.wandidev.klyndro.net.PeerAddressPolicy
+                                    PeerAddressPolicy
                                         .updatedPeerOnConnect(existing, host, port)
                                         ?.let { updated -> runCatching { store.upsert(updated) } }
                                 }
@@ -414,6 +468,12 @@ class KlyndroService : Service() {
                                     ConnectionRuntime.publishInbound(event.envelope)
                                 } else if (event.envelope.messageType == MessageType.MIRROR_CHALLENGE) {
                                     mirrorProof.respond(event.envelope)?.let { ConnectionRuntime.send(it) }
+                                } else if (event.envelope.messageType == MessageType.MIRROR_STREAM_START) {
+                                    MirrorStreamStartBody.decode(event.envelope)?.let { request ->
+                                        ConnectionRuntime.setPendingMirrorStream(request)
+                                    }
+                                } else if (event.envelope.messageType == MessageType.MIRROR_STREAM_STOP) {
+                                    stopStandardMirror(notifyPeer = false, reason = null)
                                 } else if (event.envelope.messageType == MessageType.FILE_OFFER ||
                                     event.envelope.messageType == MessageType.FILE_CHUNK ||
                                     event.envelope.messageType == MessageType.FILE_COMPLETE
@@ -424,6 +484,8 @@ class KlyndroService : Service() {
 
                             is PeerSessionEvent.Closed -> {
                                 android.util.Log.i(TAG_CONNECT, "session closed")
+                                stopStandardMirror(notifyPeer = false, reason = null)
+                                connectedPeerHost = null
                                 fileReceiver?.abort()
                                 fileReceiver = null
                                 ConnectionRuntime.detachSender()
@@ -547,7 +609,78 @@ class KlyndroService : Service() {
     private fun deviceName(): String =
         (android.os.Build.MODEL ?: "Android").take(MAX_DEVICE_NAME_CHARS)
 
+    private fun startStandardMirror(
+        resultCode: Int,
+        data: Intent,
+        request: MirrorStreamStartBody
+    ) {
+        val host = connectedPeerHost ?: return
+        val local = ensureIdentity() ?: return
+        val store = ensureTrustStore() ?: return
+
+        stopStandardMirror(notifyPeer = false, reason = null)
+
+        val notification = buildNotification(getString(R.string.service_status_mirroring))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
+        val manager = getSystemService(MediaProjectionManager::class.java) ?: return
+        val projection = manager.getMediaProjection(resultCode, data) ?: return
+        val metrics = resources.displayMetrics
+        activeMirrorStreamId = request.streamId
+        ConnectionRuntime.setStandardMirroring(true)
+
+        val streamer = StandardMirrorStreamer(
+            mediaProjection = projection,
+            sourceWidth = metrics.widthPixels,
+            sourceHeight = metrics.heightPixels,
+            densityDpi = metrics.densityDpi,
+            host = host,
+            request = request,
+            identity = local,
+            policy = PinPolicy.pinned(store.allPeers()),
+            onStopped = { reason ->
+                stopStandardMirror(notifyPeer = true, reason = reason ?: "ended")
+            }
+        )
+        standardMirrorStreamer = streamer
+        streamer.start(scope)
+    }
+
+    private fun stopStandardMirror(notifyPeer: Boolean, reason: String?) {
+        standardMirrorStreamer?.stop()
+        standardMirrorStreamer = null
+        val streamId = activeMirrorStreamId
+        activeMirrorStreamId = null
+        ConnectionRuntime.setPendingMirrorStream(null)
+        ConnectionRuntime.setStandardMirroring(false)
+        if (notifyPeer && streamId != null) {
+            scope.launch {
+                ConnectionRuntime.send(MirrorStreamStopBody(streamId, reason).toEnvelope())
+            }
+        }
+        val peerName = ConnectionRuntime.status.value.peerName
+        if (peerName != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                startForeground(
+                    NOTIFICATION_ID,
+                    buildNotification(getString(R.string.service_status_connected, peerName)),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                )
+            }
+        }
+    }
+
     private fun shutdown() {
+        stopStandardMirror(notifyPeer = false, reason = null)
         connectionJob?.cancel()
         discovery?.stopBrowsing()
         discovery = null
@@ -622,11 +755,16 @@ class KlyndroService : Service() {
         const val ACTION_PAIR = "id.my.wandidev.klyndro.action.PAIR"
         const val ACTION_CONNECT = "id.my.wandidev.klyndro.action.CONNECT"
         const val ACTION_STOP = "id.my.wandidev.klyndro.action.STOP"
+        const val ACTION_START_STANDARD_MIRROR = "id.my.wandidev.klyndro.action.START_STANDARD_MIRROR"
+        const val ACTION_STOP_STANDARD_MIRROR = "id.my.wandidev.klyndro.action.STOP_STANDARD_MIRROR"
         const val EXTRA_HOST = "host"
         const val EXTRA_PORT = "port"
         const val EXTRA_HOSTNAME = "hostname"
         const val EXTRA_PERSIST_HOST = "persist_host"
         const val EXTRA_PERSIST_HOSTNAME = "persist_hostname"
+        const val EXTRA_EXPECTED_FINGERPRINT = "expected_fingerprint"
+        const val EXTRA_PROJECTION_RESULT_CODE = "projection_result_code"
+        const val EXTRA_PROJECTION_DATA = "projection_data"
 
         private const val CHANNEL_ID = "klyndro-connection"
         private const val NOTIFICATION_ID = 1
@@ -641,6 +779,14 @@ class KlyndroService : Service() {
         fun intent(context: Context, action: String): Intent =
             Intent(context, KlyndroService::class.java).setAction(action)
 
+        fun startStandardMirrorIntent(context: Context, resultCode: Int, data: Intent): Intent =
+            intent(context, ACTION_START_STANDARD_MIRROR)
+                .putExtra(EXTRA_PROJECTION_RESULT_CODE, resultCode)
+                .putExtra(EXTRA_PROJECTION_DATA, data)
+
+        fun stopStandardMirrorIntent(context: Context): Intent =
+            intent(context, ACTION_STOP_STANDARD_MIRROR)
+
         fun connectIntent(context: Context, host: String, port: Int): Intent =
             intent(context, ACTION_CONNECT)
                 .putExtra(EXTRA_HOST, host)
@@ -652,7 +798,8 @@ class KlyndroService : Service() {
             port: Int,
             hostName: String?,
             persistHost: String? = null,
-            persistHostName: String? = null
+            persistHostName: String? = null,
+            expectedFingerprint: String? = null
         ): Intent =
             intent(context, ACTION_PAIR)
                 .putExtra(EXTRA_HOST, host)
@@ -660,6 +807,7 @@ class KlyndroService : Service() {
                 .putExtra(EXTRA_HOSTNAME, hostName)
                 .putExtra(EXTRA_PERSIST_HOST, persistHost)
                 .putExtra(EXTRA_PERSIST_HOSTNAME, persistHostName)
+                .putExtra(EXTRA_EXPECTED_FINGERPRINT, expectedFingerprint)
 
         /**
          * NSD often resolves a Mac to an IPv6 link-local address with an interface zone, which is
