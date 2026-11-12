@@ -14,8 +14,8 @@
 | Both unit suites | `./scripts/test-all.sh` |
 | Android on-device tests | `./scripts/test-device.sh` (needs an attached, unlocked phone) |
 
-Release builds (`-configuration Release`, `assembleRelease`) are intentionally not part of
-M0: signing and packaging are M6 work.
+| Release artefacts (Android APK + macOS zip/DMG) | `./scripts/release-all.sh` — see [release guide](release.md) |
+| Security guard checks | `./scripts/audit-repo.sh` |
 
 ## What the macOS side builds
 

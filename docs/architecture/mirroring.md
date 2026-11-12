@@ -106,6 +106,30 @@ obligations — including NOTICE propagation — become Klyndro's and must be ha
 Quitting the app calls `shutDown()`, which stops the child. Before M3 `shutDown()` existed but
 nothing called it.
 
+## Wireless without a cable
+
+After a one-time `adb pair` (the "First time? Pair…" form, or `adb pair` in a terminal), Klyndro
+connects over Wi-Fi by itself: on launch, and when a paired phone connects, it browses
+`_adb-tls-connect._tcp`, resolves the phone's current port, and runs `adb connect`. The port changes
+every time Wireless debugging is toggled, which is why it is read from Bonjour and never typed.
+`_adb-tls-connect._tcp` is declared in `Info.plist` for that browse.
+
+- When no usable phone is found (USB or Wi-Fi), Start shows a popup saying what to switch on:
+  Wireless debugging for Wi-Fi, or USB debugging with the cable. If adb sees the phone but it is
+  `unauthorized` or `offline`, the popup gives that specific fix instead
+  (`KlyndroKit/Mirroring/MirroringGuidance.swift`, unit-tested).
+- Klyndro does **not** turn Wireless debugging on for the user. Doing so needs
+  `WRITE_SECURE_SETTINGS`, a sensitive permission that can only be granted through adb; it was
+  considered and left out.
+- Needs Wireless debugging **on** at the phone. Android may switch it off when the phone leaves
+  the Wi-Fi network.
+- It cannot reach a phone that never approved this Mac's adb key. Pairing stays a user action.
+- An `adb` server left running by a terminal or IDE can fail LAN connects with `No route to host`
+  while the same command works through Klyndro. Klyndro restarts the adb server once on that error.
+  This affects any other tool using the same server; devices stay authorised.
+- The pairing code is passed to `adb pair` as an argument, so other processes of the same user can
+  see it for a few seconds. It is single-use and is never logged or stored.
+
 ## Known limits
 
 - **adb serial is not a Klyndro device ID.** Nothing ties the device chosen for mirroring to a
@@ -140,7 +164,10 @@ scrcpy window with synthesized mouse and key events.
 | Fullscreen (`F11`) | **NOT VERIFIED** — the window moved and changed z-order but kept its size; not enough to claim fullscreen |
 | Screen-off mode (`--turn-screen-off`) | **PASS** — verified dark panel on device by user inspection |
 | Wireless mirroring over Wi-Fi (`adb connect` target) | **PASS** — launched via Klyndro child process (`192.168.21.92:43729`), mouse click in window successfully switched phone tab |
+| Automatic Wi-Fi connect (no USB): app finds the phone via `_adb-tls-connect._tcp` and runs `adb connect` | **PASS** — app started with no adb server and no cable; `adb devices` listed `192.168.66.63:37171` within 35 s. Tested only on a phone already paired with this Mac's adb |
+| Wi-Fi connect when a foreign adb server (started from a terminal) is running | **PASS** — failed with `No route to host`; after `adb kill-server` the app-started server connected. The app now restarts the server once on that error. The restart-on-error path itself was **NOT TESTED** end to end |
+| Popup when no phone is usable (Wi-Fi: Wireless debugging, USB: USB debugging) | **PASS** — logic by 3 unit tests; popup and the Wi-Fi start flow confirmed on screen by the user (manual, not scripted) |
 | Wireless mirroring (`--tcpip`) | **NOT TESTED** — requires running `adb tcpip` which opens port 5555; avoided in favour of Android 11+ Wireless Debugging |
-| First-time wireless pairing (`adb pair`) | **NOT TESTED** |
+| First-time wireless pairing (`adb pair`) from the app form | **NOT TESTED** — the phone was already paired. A terminal `adb pair` failed twice with `protocol fault` for an unestablished reason |
 | Restart after network drop | **NOT TESTED** — there is no auto-restart |
 | UI text for `unauthorized` / missing scrcpy | **NOT TESTED** on screen; the strings are unit-tested |

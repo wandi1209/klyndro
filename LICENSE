@@ -25,7 +25,9 @@ SOFTWARE.
 Third-party attribution
 
 Klyndro invokes or interoperates with the following third-party software. No
-third-party code is vendored into this repository at milestone M0.
+third-party source is vendored into this repository. Release builds of the Android app
+link the libraries listed below; release builds of the macOS app link swift-certificates and
+swift-crypto.
 
 - scrcpy (https://github.com/Genymobile/scrcpy) — Apache License 2.0.
   Klyndro launches the user's own scrcpy installation as a child process and
@@ -37,3 +39,7 @@ third-party code is vendored into this repository at milestone M0.
   certificate and nothing else. No cryptographic primitive is implemented by Klyndro.
 - Bouncy Castle (https://www.bouncycastle.org) — Bouncy Castle licence (MIT-style).
   Linked into the Android app to DER-encode the self-signed identity certificate.
+- Gson (https://github.com/google/gson) — Apache License 2.0, Google.
+  Linked into the Android app to build and parse JSON message trees.
+- AndroidX, Jetpack Compose and Kotlin coroutines — Apache License 2.0.
+  Linked into the Android app.

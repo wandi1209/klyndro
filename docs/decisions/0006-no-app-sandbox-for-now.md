@@ -1,6 +1,6 @@
 # 0006 — No App Sandbox for now; direct distribution
 
-Status: Accepted (M0). Must be revisited before M6 release packaging.
+Status: Accepted (M0). Revisited at M6: still unsandboxed; distribution is covered by ADR 0009.
 
 ## Context
 

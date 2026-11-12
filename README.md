@@ -7,14 +7,16 @@ integration. It pairs your phone with your Mac over the local network — no acc
 cloud, no relay — and aims to provide shared clipboard, screen mirroring, remote control,
 notifications, and file transfer.
 
-> **Project status: M2 (clipboard) works on real hardware.** A MacBook Air M3 and a Redmi Note 13 5G
-> (HyperOS 3, Android 15) pair with a six-digit code, reconnect over Wi-Fi with pinned keys, and
-> sync text in both directions without echo. Android only allows clipboard access to the app on
-> screen, so sync runs while Klyndro is open; that is a platform rule, not a bug. Unit suites are
-> green (148 Swift tests, 102 Android JVM tests) and the 11 on-device instrumented tests pass.
-> **Not tested yet:** background or screen-off behaviour, HyperOS autostart/battery settings, and
-> automatic reconnect after sleep or a network change (M4). See
-> [verification status](docs/testing/verification-status.md).
+> **Project status: M0-M5 verified on real hardware; M6 (release engineering) builds are in place.**
+> A MacBook Air M3 and a Redmi Note 13 5G (HyperOS 3, Android 15) pair with a six-digit code,
+> reconnect over Wi-Fi with pinned keys, sync text both ways, mirror the screen with scrcpy, and
+> forward Android notifications and files to the Mac. Android only allows clipboard access to the
+> app on screen, so clipboard sync runs while Klyndro is open; that is a platform rule, not a bug.
+> **Not tested:** Mac -> Android file transfer, fullscreen mirroring, background/screen-off
+> clipboard, HyperOS autostart/battery settings, the minified Android release APK on a device,
+> Hardened Runtime at runtime, and notarisation. See
+> [verification status](docs/testing/verification-status.md) and the
+> [security review](docs/security/review-checklist.md).
 
 ## Status
 
@@ -26,11 +28,11 @@ notifications, and file transfer.
 | M3 | Screen mirroring via scrcpy | **Verified on device** (USB + Wi-Fi, mouse/keyboard control, rotate, resize, screen-off, clean stop); fullscreen NOT verified |
 | M4 | Login item, menu bar integration, reconnect, Android service lifecycle | **Verified on device** (Android auto-connect on resume, mDNS trigger, backoff retry, macOS NWPathMonitor & sleep/wake) |
 | M5 | Notifications, file transfer | **Verified on device** (Android -> Mac notification banner + chunked file transfer with SHA-256 verification) |
-| M6 | Release engineering, packaging, security review | Not started |
+| M6 | Release engineering, packaging, security review | **Builds and docs done**; signed/notarised distribution and on-device test of release builds NOT TESTED |
 
 ## Features
 
-In priority order. Pairing and clipboard work today; the rest are designed, not built.
+In priority order.
 
 | Feature | Plan | Status |
 | --- | --- | --- |
@@ -144,7 +146,6 @@ These are platform facts, not missing polish. Each is documented with sources in
 
 ## Known gaps
 
-- No launcher icon on Android (system default is used). Icon design is M6 work.
 - No UI tests on either platform. The macOS app was launched and its Bonjour advertisement
   verified with `dns-sd`; its controls were not exercised. The Android APK has been installed and
   its Devices screen observed rendering, but its controls have not been exercised in a live
@@ -152,13 +153,18 @@ These are platform facts, not missing polish. Each is documented with sources in
 - Manual IP entry (F01) is specified but not in the UI.
 - A pairing made over the USB button stores `127.0.0.1` as the Mac's address, which goes stale
   when the tunnel drops; the reconnect fallback hides this rather than fixing the stored value.
-- Release builds, signing, notarisation, and packaging are deliberately out of scope until M6.
+- Releases are ad-hoc signed on macOS and unsigned on Android unless you supply your own keys
+  ([release guide](docs/development/release.md)). No Developer ID identity was available, so
+  notarisation has not been run.
+- Mirroring is not restricted to Klyndro-paired phones (security review S11).
 
 ## Roadmap
 
-M2 (clipboard) is verified on hardware. M3 (mirroring via scrcpy) is next. See [architecture overview](docs/architecture/overview.md)
-for the component design and [the protocol specification](protocol/specification/klyndro-protocol-v1.md)
-for the contract between the two apps.
+All planned milestones have an implementation. Remaining work is verification and distribution:
+run the signed release builds on a device pair, test Mac -> Android file transfer, and obtain a
+Developer ID identity for notarised macOS builds. See the
+[architecture overview](docs/architecture/overview.md) and the
+[protocol specification](protocol/specification/klyndro-protocol-v1.md).
 
 ## License
 
