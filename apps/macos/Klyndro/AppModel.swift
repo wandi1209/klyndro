@@ -185,6 +185,7 @@ final class AppModel {
         lastProbedAt = Date()
         mirroring.updateToolchain(toolchain)
         await mirroring.refreshDevices()
+        await mirroring.autoConnectIfNeeded()
     }
 
     // MARK: - Deep links
@@ -200,8 +201,7 @@ final class AppModel {
             switch url.path {
             case "/stop": mirroring.stop()
             default:
-                await mirroring.refreshDevices()
-                mirroring.start()
+                await mirroring.startOrGuide()
             }
         default:
             break
@@ -500,6 +500,8 @@ final class AppModel {
             NSLog("[Klyndro] session established with %@", info.name)
             upsertConnectedDevice(info, state: .connected)
             await startClipboardIfSupported(info, session: session)
+            // A paired phone just came online on this network; make it available to mirroring too.
+            await mirroring.autoConnectIfNeeded()
         case .message(let envelope):
             await handleIncomingMessage(envelope)
         case .closed:

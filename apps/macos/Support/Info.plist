@@ -48,6 +48,8 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_klyndro._tcp</string>
+		<!-- Android Wireless debugging: lets Mirroring find the phone's connect port. -->
+		<string>_adb-tls-connect._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Klyndro discovers and connects to your paired Android devices on the local network.</string>
