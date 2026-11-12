@@ -46,6 +46,9 @@
     <string name="permissions_clipboard_body">Android 10 and later block clipboard access for apps that are not in the foreground or set as the keyboard. Klyndro cannot read your clipboard silently in the background; see Help for the supported fallbacks.</string>
     <string name="permissions_notifications_title">Notification access</string>
     <string name="permissions_notifications_body">A sensitive, user-granted system permission. Needed only to forward notifications to your Mac. Klyndro never asks for it silently.</string>
+    <string name="permissions_post_notifications_title">App notifications</string>
+    <string name="permissions_post_notifications_body">Allows Klyndro to show connection banners and file transfer alerts on this phone.</string>
+    <string name="permissions_grant_post_notifications">Allow app notifications</string>
     <string name="permissions_state_granted">Granted</string>
     <string name="permissions_state_not_required">Not granted</string>
     <string name="permissions_open_settings">Open app settings</string>
@@ -70,6 +73,7 @@
     <string name="service_status_starting">Starting…</string>
     <string name="service_status_paired">Paired with %1$s</string>
     <string name="service_status_connected">Connected to %1$s</string>
+    <string name="event_connected_body">Connected to %1$s. Sync and sharing are ready.</string>
     <string name="service_status_mirroring">Sharing screen with Mac</string>
     <string name="service_status_closed">Connection closed</string>
     <string name="standard_mirror_stop">Stop screen sharing</string>

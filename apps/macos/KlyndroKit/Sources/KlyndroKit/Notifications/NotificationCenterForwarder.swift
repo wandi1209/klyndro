@@ -27,23 +27,33 @@ public actor NotificationCenterForwarder {
 
     /// Posts a forwarded notification if it is not a recent duplicate.
     public func post(_ notification: NotificationPostBody) async {
+        await post(
+            key: notification.key,
+            title: notification.appName.isEmpty ? notification.title : "\(notification.appName): \(notification.title)",
+            body: notification.text,
+            deduplicationSeconds: deduplicationWindow
+        )
+    }
+
+    /// Posts a direct local alert banner (for connection lifecycle events, etc.).
+    public func post(key: String, title: String, body: String, deduplicationSeconds: TimeInterval = 10) async {
         pruneExpiredKeys()
 
-        if let seenAt = recentKeys[notification.key],
-           Date().timeIntervalSince(seenAt) < deduplicationWindow {
+        if let seenAt = recentKeys[key],
+           Date().timeIntervalSince(seenAt) < deduplicationSeconds {
             // Suppress duplicate notification
             return
         }
 
-        recentKeys[notification.key] = Date()
+        recentKeys[key] = Date()
 
         let content = UNMutableNotificationContent()
-        content.title = notification.appName.isEmpty ? notification.title : "\(notification.appName): \(notification.title)"
-        content.body = notification.text
+        content.title = title
+        content.body = body
         content.sound = .default
 
         let request = UNNotificationRequest(
-            identifier: notification.key,
+            identifier: key,
             content: content,
             trigger: nil // Deliver immediately
         )

@@ -633,6 +633,14 @@ final class AppModel {
             NSLog("[Klyndro] session established with %@", info.name)
             upsertConnectedDevice(info, state: .connected)
             await startClipboardIfSupported(info, session: session)
+            Task {
+                _ = await NotificationCenterForwarder.shared.requestAuthorization()
+                await NotificationCenterForwarder.shared.post(
+                    key: "klyndro-session-connected:\(info.name)",
+                    title: "Connected to \(info.name)",
+                    body: "Clipboard, notifications, and mirroring are ready."
+                )
+            }
             fileSender = FileTransferSender { [weak session] envelope in
                 guard let session else { throw FileSendError.sendFailed }
                 try await session.send(envelope)

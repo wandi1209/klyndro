@@ -460,6 +460,7 @@ class KlyndroService : Service() {
                                 updateNotification(
                                     getString(R.string.service_status_connected, event.info.name)
                                 )
+                                notifyConnected(event.info.name)
                             }
 
                             is PeerSessionEvent.Message -> {
@@ -716,6 +717,7 @@ class KlyndroService : Service() {
     // MARK: - Notification
 
     private fun createNotificationChannel() {
+        val manager = getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.service_channel_name),
@@ -724,7 +726,16 @@ class KlyndroService : Service() {
             description = getString(R.string.service_channel_description)
             setShowBadge(false)
         }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val eventsChannel = NotificationChannel(
+            CHANNEL_EVENTS_ID,
+            getString(R.string.service_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = getString(R.string.service_channel_description)
+            setShowBadge(true)
+        }
+        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(eventsChannel)
     }
 
     private fun buildNotification(text: String): Notification {
@@ -747,7 +758,7 @@ class KlyndroService : Service() {
     /** Shown when a file from the Mac has been verified and saved. Names the file, never its content. */
     private fun notifyFileSaved(displayName: String) {
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, CHANNEL_EVENTS_ID)
             .setContentTitle(getString(R.string.file_received_title))
             .setContentText(getString(R.string.file_received_body, displayName))
             .setSmallIcon(R.drawable.ic_klyndro_mark)
@@ -755,6 +766,25 @@ class KlyndroService : Service() {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         manager.notify(FILE_NOTIFICATION_ID, notification)
+    }
+
+    private fun notifyConnected(peerName: String) {
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        val open = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_EVENTS_ID)
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(getString(R.string.event_connected_body, peerName))
+            .setSmallIcon(R.drawable.ic_klyndro_mark)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        manager.notify(EVENT_NOTIFICATION_ID, notification)
     }
 
     private fun updateNotification(text: String) {
@@ -778,8 +808,10 @@ class KlyndroService : Service() {
         const val EXTRA_PROJECTION_DATA = "projection_data"
 
         private const val CHANNEL_ID = "klyndro-connection"
+        private const val CHANNEL_EVENTS_ID = "klyndro-events"
         private const val NOTIFICATION_ID = 1
         private const val FILE_NOTIFICATION_ID = 2
+        private const val EVENT_NOTIFICATION_ID = 3
         private const val PREFS_DEVICE = "klyndro_device"
         private const val PREFS_TRUST = "klyndro_trust"
         private const val KEY_DEVICE_ID = "device_id"
