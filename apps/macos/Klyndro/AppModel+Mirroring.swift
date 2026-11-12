@@ -218,13 +218,11 @@ final class MirroringController {
             return
         }
 
-        if let verifySerial {
-            let result = await verifySerial(device.serial)
-            if case .failure(let error) = result {
-                lastMessage = error.description
-                present(title: "Phone not allowed", message: error.description)
-                return
-            }
+        let result = await verifySerial?(device.serial) ?? .failure(.notConnected)
+        if case .failure(let error) = result {
+            lastMessage = error.description
+            present(title: "Phone not allowed", message: error.description)
+            return
         }
         start()
     }
@@ -239,7 +237,7 @@ final class MirroringController {
         alert.runModal()
     }
 
-    func start() {
+    private func start() {
         if let reason = blockingReason {
             lastMessage = reason
             NSLog("[Klyndro] mirroring blocked: %{public}@", reason)

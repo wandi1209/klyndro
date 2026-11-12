@@ -30,11 +30,11 @@ unverified.
 | M6-W2 | Popup explaining Wireless / USB debugging when mirroring cannot start | **PASS** — 3 unit tests, plus manual confirmation by the user that the popup shows and mirroring starts once Wireless debugging is on |
 | M6-F1 | Android file receiver: size cap, in-order chunks, hash check, name sanitising | **PASS** — 14 JVM tests (`FileReceiveSessionTest`) |
 | M6-F2 | Mac file sender: offer/accept/reject, ordered chunks, hash | **PASS** — 7 tests (`FileTransferSenderTests`) |
-| M6-M1 | Mirror raw-input scoping: mirror challenge/proof binds adb serial to paired phone | **PASS (logic)** — 18 tests (`MirrorProofTests`, `MirrorProofResponderTest`); **NOT TESTED** on a phone (no device attached) |
+| M6-M1 | Mirror raw-input scoping: mirror challenge/proof binds adb serial to paired phone | **PASS** — 18 unit tests (`MirrorProofTests`, `MirrorProofResponderTest`) + verified on Redmi Note 13 5G (`hiam6hf6lfsshuif`, Debug build): connected session verifies and cleans up `/sdcard/Android/data/id.my.wandidev.klyndro/files/klyndro-mirror-proof` before launching `scrcpy`; disconnected phone (`Status: stopped`) is refused (fixed fail-open `verifySerial = nil` bug in `AppModel`). Two-device mismatch on hardware **NOT TESTED** (single phone attached; covered in unit tests) |
 | M6-U1 | New logo shown on the Android Home screen, live status pill, dark-mode text | **PASS** — screenshot on Redmi Note 13 5G |
 | M6-U2 | Menu bar icon, Dock icon, Mac main window, Android launcher icon | **NOT TESTED** — Mac menu bar not reachable by script, launcher screenshot did not show the icon |
 | M6-S1 | `scripts/audit-repo.sh` guard checks | **PASS** — 9 checks |
-| M6-S2 | Security review | See [review checklist](../security/review-checklist.md): 1 known FAIL (S11 mirroring scope), 2 NOT TESTED (S9, S12) |
+| M6-S2 | Security review | See [review checklist](../security/review-checklist.md): S11 **PASS** (scoped via challenge/proof; two-device hardware mismatch NOT TESTED), 2 partial/NOT TESTED (S9, S12 Developer ID) |
 
 ## M5 — notification forwarding & file transfer
 
@@ -81,7 +81,7 @@ USB mirroring works from the app on the Redmi Note 13 5G. Full table with eviden
 | M3-D7 | Screen-off mode (`--turn-screen-off`) | **PASS** — verified dark panel by user on physical device |
 | M3-N1 | Fullscreen | **NOT VERIFIED** |
 | M3-N2 | Wireless mirroring via `adb tcpip 5555` | **NOT TESTED** — avoided in favour of Android 11+ Wireless Debugging |
-| M3-N4 | Scoping mirroring to Klyndro-paired devices | **NOT MET** — adb serial is not a Klyndro device ID |
+| M3-N4 | Scoping mirroring to Klyndro-paired devices | **PASS** (M6) — `mirror.challenge`/`mirror.proof` (§5.4a) binds adb serial to the paired Klyndro session; verified on device when connected and refused when disconnected |
 
 ## M2 — clipboard synchronization
 

@@ -17,14 +17,13 @@ audit.
 | S8 | Size limits enforced before allocation | **PASS (by test)** | Frame length check precedes buffer allocation; covered by frame tests. File transfer verifies SHA-256 on completion |
 | S9 | Only unauthenticated surface is the pairing listener, 60 s, on user action | **NOT TESTED end-to-end** | Window length is in code and unit tests; the timeout was not re-observed on hardware during M6 |
 | S10 | Sensitive Android permissions never enabled silently | **PASS** | Notification access is opened through system settings by user tap; the app never requests Accessibility. `PermissionsScreen` shows real state |
-| S11 | Mirroring is limited to Klyndro-paired devices | **FAIL (known)** | adb serial is not the Klyndro device ID, so any adb-visible device can be mirrored. Documented in `docs/architecture/mirroring.md`. Mitigated by the user having to start mirroring from the Mac UI |
+| S11 | Mirroring is limited to Klyndro-paired devices | **PASS** | Protocol §5.4a (`mirror.challenge`/`mirror.proof`) binds the adb serial to the active Klyndro TLS session and fails closed when disconnected. Verified by 18 unit tests and on Redmi Note 13 5G (connected allowed, disconnected refused); two-device hardware mismatch **NOT TESTED** |
 | S12 | Mac app runs under Hardened Runtime for distribution | **PASS (ad-hoc)** | Release app re-signed with `--options runtime` launched, advertised over Bonjour and held a session with the phone. Not tested with a Developer ID or after notarisation |
 | S13 | Release Android build is shrunk and signed from external secrets | **PASS (build) / NOT TESTED (runtime)** | `assembleRelease` succeeds with R8; `apksigner verify` passes for a throwaway key. The minified APK was **not run on a device** |
 | S14 | Mac app is not sandboxed | **ACCEPTED RISK** | ADR 0006: needed to launch scrcpy/adb. Mitigation: open source, signed releases, no listeners other than the paired session |
 
 ## Known weaknesses
 
-- Mirroring is not scoped to Klyndro-paired phones (S11).
 - Ad-hoc signed macOS builds carry no publisher identity. Users must verify the SHA-256 against a
   value published through a separate channel.
 - A pairing made over the USB path stores `127.0.0.1` as last host (functional defect, not a

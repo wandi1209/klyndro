@@ -72,6 +72,13 @@ final class AppModel {
 
     static let servicePort: UInt16 = 47_823
 
+    init() {
+        mirroring.verifySerial = { [weak self] serial in
+            guard let self, let mirrorProof = self.mirrorProof else { return .failure(.notConnected) }
+            return await mirrorProof.verify(serial: serial)
+        }
+    }
+
     var isConnected: Bool { devices.contains(where: \.isConnected) }
 
     var connectionSummary: String {
@@ -564,10 +571,6 @@ final class AppModel {
                     await self?.adbDelete(serial: serial, path: path)
                 }
             )
-            mirroring.verifySerial = { [weak self] serial in
-                guard let self, let mirrorProof = self.mirrorProof else { return .failure(.notConnected) }
-                return await mirrorProof.verify(serial: serial)
-            }
             // A paired phone just came online on this network; make it available to mirroring too.
             await mirroring.autoConnectIfNeeded()
         case .message(let envelope):
@@ -577,7 +580,6 @@ final class AppModel {
             await stopClipboard()
             fileSender = nil
             mirrorProof = nil
-            mirroring.verifySerial = nil
             fileSendProgress = nil
             activeSession = nil
             devices = devices.map { row in

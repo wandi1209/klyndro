@@ -156,7 +156,6 @@ These are platform facts, not missing polish. Each is documented with sources in
 - Releases are ad-hoc signed on macOS and unsigned on Android unless you supply your own keys
   ([release guide](docs/development/release.md)). No Developer ID identity was available, so
   notarisation has not been run.
-- Mirroring is not restricted to Klyndro-paired phones (security review S11).
 
 ## Roadmap
 
