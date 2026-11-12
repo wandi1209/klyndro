@@ -20,6 +20,10 @@ final class MirroringController {
     /// Result of the last Wi-Fi attempt, shown next to the controls. Never contains the pairing code.
     private(set) var wirelessMessage: String?
     private(set) var isConnectingWirelessly = false
+    private(set) var installedPackages: [AdbPackageName] = []
+    var selectedPackage: String = ""
+    private(set) var isRunningAdbAction = false
+    private(set) var adbActionMessage: String?
     var selectedSerial: String?
     var options = MirroringOptions.default
 
@@ -263,6 +267,84 @@ final class MirroringController {
 
     func stop() {
         session.stop()
+    }
+
+    // MARK: - Structured ADB controls (paired phone only)
+
+    func sendNavKey(_ key: AdbNavKey) async {
+        guard let serial = await verifiedSelectedSerial(), let adb = adbPath else { return }
+        isRunningAdbAction = true
+        defer { isRunningAdbAction = false }
+        let args = AdbControlCommand.keyEventArguments(serial: serial, key: key)
+        let output = await Task.detached(priority: .utility) { AdbProcess.run(adb, args, timeout: 5) }.value
+        adbActionMessage = output.status == 0 ? "Sent \(key.displayName)." : "Failed to send \(key.displayName)."
+    }
+
+    func refreshInstalledPackages() async {
+        guard let serial = await verifiedSelectedSerial(), let adb = adbPath else { return }
+        isRunningAdbAction = true
+        defer { isRunningAdbAction = false }
+        let args = AdbControlCommand.listPackagesArguments(serial: serial)
+        let output = await Task.detached(priority: .utility) { AdbProcess.run(adb, args, timeout: 8) }.value
+        guard output.status == 0 else {
+            adbActionMessage = "Could not list installed apps."
+            return
+        }
+        let parsed = AdbPackagesParser.parse(output.text)
+        installedPackages = parsed
+        if selectedPackage.isEmpty || !parsed.contains(where: { $0.value == selectedPackage }) {
+            selectedPackage = parsed.first?.value ?? ""
+        }
+        adbActionMessage = "Found \(parsed.count) user apps."
+    }
+
+    func launchSelectedPackage() async {
+        guard let pkg = AdbPackageName(selectedPackage),
+              let serial = await verifiedSelectedSerial(),
+              let adb = adbPath else { return }
+        isRunningAdbAction = true
+        defer { isRunningAdbAction = false }
+        let args = AdbControlCommand.launchPackageArguments(serial: serial, package: pkg)
+        let output = await Task.detached(priority: .utility) { AdbProcess.run(adb, args, timeout: 8) }.value
+        adbActionMessage = output.status == 0 ? "Launched \(pkg.value)." : "Could not launch \(pkg.value)."
+    }
+
+    func takeScreenshot() async {
+        guard let serial = await verifiedSelectedSerial(), let adb = adbPath else { return }
+        isRunningAdbAction = true
+        defer { isRunningAdbAction = false }
+        let args = AdbControlCommand.screencapArguments(serial: serial)
+        let pngData = await Task.detached(priority: .utility) {
+            AdbControlCommand.captureData(adb, args, timeout: 10)
+        }.value
+        guard let pngData, pngData.starts(with: [0x89, 0x50, 0x4E, 0x47]) else {
+            adbActionMessage = "Screenshot failed."
+            return
+        }
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
+        let stamp = Int(Date().timeIntervalSince1970)
+        let dest = downloads.appendingPathComponent("Klyndro-screenshot-\(stamp).png")
+        do {
+            try pngData.write(to: dest)
+            adbActionMessage = "Saved \(dest.lastPathComponent) to Downloads."
+        } catch {
+            adbActionMessage = "Could not save screenshot: \(error.localizedDescription)"
+        }
+    }
+
+    private func verifiedSelectedSerial() async -> String? {
+        await refreshDevices()
+        guard let device = selectedDevice, device.isUsable else {
+            adbActionMessage = "No usable ADB device found."
+            return nil
+        }
+        let result = await verifySerial?(device.serial) ?? .failure(.notConnected)
+        if case .failure(let error) = result {
+            adbActionMessage = error.description
+            return nil
+        }
+        return device.serial
     }
 
     /// Last lines of scrcpy's own output, for the diagnostics panel.

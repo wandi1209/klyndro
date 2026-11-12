@@ -39,6 +39,7 @@ unverified.
 | M7-QR | QR code pairing (`PairingQRPayload`, `CoreImage` generator, `Camera2` + `zxing:core` scanner, TLS SPKI pre-pinning) | **PASS** — `PairingQRCodeTests` (Swift), `PairingQRCodeTest` + `QrLuminanceDecoderTest` (JVM), verified end-to-end on Redmi Note 13 5G (`hiam6hf6lfsshuif`) scanning QR from macOS `PairingSheet` |
 | M7-SM | PoC Standard Mirroring (No ADB: `MediaProjection` + `MediaCodec` H.264 → pinned TLS → `AVSampleBufferDisplayLayer`) | **PASS (unit & build)** — `MirrorStreamCodecTests` (Swift), `MirrorStreamMessagesTest` + `FixtureConformanceTest` (JVM), macOS Debug + Android Debug build OK; `c2.mtk.avc.encoder` observed streaming 147+ frames on Redmi Note 13 5G |
 | M7-RC | Standard remote control (`input.gesture` / `input.action`, `KlyndroAccessibilityService`, normalized mouse/drag/scroll in `StandardMirrorView`) | **PASS (unit & build)** — `MirrorInputCodecTests` (Swift), `MirrorInputMessagesTest` + `FixtureConformanceTest` (JVM), macOS Debug + Android Debug build OK; **NOT TESTED** end-to-end on physical hardware yet |
+| M7-ADV | Advanced Mode structured ADB controls (Back/Home/Recents/Power keyevents, user package list/launch via `monkey`, native `screencap` PNG to `~/Downloads`, gated by `verifySerial`) | **PASS (unit & build)** — `AdbControlsTests` (Swift), macOS Debug build OK; **NOT TESTED** end-to-end on physical hardware yet |
 
 ## M5 — notification forwarding & file transfer
 

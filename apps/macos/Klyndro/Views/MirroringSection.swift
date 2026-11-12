@@ -83,6 +83,63 @@ struct MirroringSection: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+                DisclosureGroup("Advanced ADB controls") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            ForEach(AdbNavKey.allCases, id: \.self) { key in
+                                Button(key.displayName) {
+                                    Task { await mirroring.sendNavKey(key) }
+                                }
+                                .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
+                            }
+                            Spacer()
+                            Button {
+                                Task { await mirroring.takeScreenshot() }
+                            } label: {
+                                Label("Screenshot", systemImage: "camera")
+                            }
+                            .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
+                        }
+
+                        HStack(spacing: 8) {
+                            Picker("App", selection: Binding(
+                                get: { mirroring.selectedPackage },
+                                set: { mirroring.selectedPackage = $0 }
+                            )) {
+                                if mirroring.installedPackages.isEmpty {
+                                    Text("Tap Refresh to load apps").tag("")
+                                }
+                                ForEach(mirroring.installedPackages, id: \.value) { pkg in
+                                    Text(pkg.value).tag(pkg.value)
+                                }
+                            }
+                            .disabled(mirroring.installedPackages.isEmpty || mirroring.isRunningAdbAction)
+
+                            Button {
+                                Task { await mirroring.refreshInstalledPackages() }
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            .help("List user apps via adb")
+                            .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
+
+                            Button("Open App") {
+                                Task { await mirroring.launchSelectedPackage() }
+                            }
+                            .disabled(mirroring.selectedPackage.isEmpty || mirroring.isRunningAdbAction)
+                        }
+
+                        if let msg = mirroring.adbActionMessage {
+                            Text(msg)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.top, 6)
+                }
+                .font(.callout)
             }
             .padding(6)
             .frame(maxWidth: .infinity, alignment: .leading)
