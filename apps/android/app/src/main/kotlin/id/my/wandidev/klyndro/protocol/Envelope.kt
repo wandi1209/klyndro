@@ -16,6 +16,8 @@ enum class MessageType(val wireName: String?) {
     FILE_REJECT("file.reject"),
     FILE_CHUNK("file.chunk"),
     FILE_COMPLETE("file.complete"),
+    MIRROR_CHALLENGE("mirror.challenge"),
+    MIRROR_PROOF("mirror.proof"),
     PAIR_REQUEST("pair.request"),
     PAIR_CONFIRM("pair.confirm"),
     PAIR_RESULT("pair.result"),
