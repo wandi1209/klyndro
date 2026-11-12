@@ -48,13 +48,15 @@ struct KlyndroApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("Klyndro", systemImage: "link") {
+        MenuBarExtra {
             MenuBarView()
                 .environment(model)
                 .task {
                     AppDelegate.setModel(model)
                     await model.start()
                 }
+        } label: {
+            Image("MenuBarIcon")
         }
 
         Window("Klyndro", id: "main") {
