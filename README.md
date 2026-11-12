@@ -12,7 +12,7 @@ notifications, and file transfer.
 > reconnect over Wi-Fi with pinned keys, sync text both ways, mirror the screen with scrcpy, and
 > forward Android notifications and files to the Mac. Android only allows clipboard access to the
 > app on screen, so clipboard sync runs while Klyndro is open; that is a platform rule, not a bug.
-> **Not tested:** Mac -> Android file transfer, fullscreen mirroring, background/screen-off
+> **Not tested:** fullscreen mirroring, background/screen-off
 > clipboard, HyperOS autostart/battery settings, the minified Android release APK on a device,
 > Hardened Runtime at runtime, and notarisation. See
 > [verification status](docs/testing/verification-status.md) and the
@@ -41,7 +41,7 @@ In priority order.
 | Screen mirroring and control | Managed `scrcpy` process | **Verified on device** (USB + Wi-Fi); fullscreen NOT verified |
 | Automatic reconnection | Bounded exponential backoff, network-change aware | **Verified on device** (mDNS live match, backoff retry, sleep/wake recovery) |
 | Notification forwarding | `NotificationListenerService` → macOS notifications | **Verified on device** (5-min dedup, native banner delivery) |
-| File transfer | Direct local-network transfer with integrity checks | **Verified on device** (Android → Mac chunked transfer + SHA-256) |
+| File transfer | Direct local-network transfer with integrity checks | **Verified on device** in both directions (chunked, SHA-256) |
 | Menu bar integration | `MenuBarExtra`, launch at login | **Verified on device** (`SMAppService.mainApp` + live status/controls) |
 
 ## Requirements

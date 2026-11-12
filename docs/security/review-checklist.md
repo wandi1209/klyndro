@@ -18,7 +18,7 @@ audit.
 | S9 | Only unauthenticated surface is the pairing listener, 60 s, on user action | **NOT TESTED end-to-end** | Window length is in code and unit tests; the timeout was not re-observed on hardware during M6 |
 | S10 | Sensitive Android permissions never enabled silently | **PASS** | Notification access is opened through system settings by user tap; the app never requests Accessibility. `PermissionsScreen` shows real state |
 | S11 | Mirroring is limited to Klyndro-paired devices | **FAIL (known)** | adb serial is not the Klyndro device ID, so any adb-visible device can be mirrored. Documented in `docs/architecture/mirroring.md`. Mitigated by the user having to start mirroring from the Mac UI |
-| S12 | Mac app runs under Hardened Runtime for distribution | **NOT TESTED at runtime** | `codesign --options runtime` produces a valid signature (`flags=adhoc,runtime`), but an earlier launch showed no Bonjour advertisement, but the SSD was unmounted at the time, so it is not evidence. Not re-run |
+| S12 | Mac app runs under Hardened Runtime for distribution | **PASS (ad-hoc)** | Release app re-signed with `--options runtime` launched, advertised over Bonjour and held a session with the phone. Not tested with a Developer ID or after notarisation |
 | S13 | Release Android build is shrunk and signed from external secrets | **PASS (build) / NOT TESTED (runtime)** | `assembleRelease` succeeds with R8; `apksigner verify` passes for a throwaway key. The minified APK was **not run on a device** |
 | S14 | Mac app is not sandboxed | **ACCEPTED RISK** | ADR 0006: needed to launch scrcpy/adb. Mitigation: open source, signed releases, no listeners other than the paired session |
 

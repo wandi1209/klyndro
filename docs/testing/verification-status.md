@@ -21,11 +21,15 @@ unverified.
 | M6-B3 | Android release build with R8 and resource shrinking | **PASS (build)** — `assembleRelease` succeeds, APK 4.6 MB (debug 36.7 MB) |
 | M6-B4 | Android release APK signed from external keystore | **PASS** — throwaway key, `apksigner verify` OK (v2 scheme) |
 | M6-D1 | Minified release APK runs on the device and connects | **NOT TESTED** — installing over the debug build would uninstall it and delete the phone's pairing; not done without user approval |
-| M6-D2 | macOS Hardened Runtime build runs | **NOT TESTED** — the earlier failed launch happened while the SSD holding the build tools was unmounted, so it proves nothing. Not re-run |
+| M6-D2 | macOS Hardened Runtime build runs and connects | **PASS** — copy of the Release app signed with `codesign --options runtime` (`flags=adhoc,runtime`) advertised `_klyndro._tcp`, listened on 47823 and connected to the phone (`Status: connected`). Caveat: the phone's first attempt had failed (`ECONNREFUSED`, from the previous app instance) and did not retry by itself within about 45 s; it connected after Stop then Start on the phone. Notarised/Developer ID signing is still **BLOCKED** |
 | M6-D3 | Developer ID signing and notarisation | **BLOCKED** — no Developer ID identity on this machine |
 | M6-W1 | Mirroring finds and connects the phone over Wi-Fi automatically, no USB | **PASS** — see `docs/architecture/mirroring.md`. Pairing form **NOT TESTED** |
-| M6-D1b | Minified release APK pairs and connects with the Mac | **PASS** — fingerprint `8bbaa632` shown as Connected on the Mac. Clipboard and reconnect on this build **NOT TESTED** |
+| M6-D1b | Minified release APK pairs and connects with the Mac | **PASS** — fingerprint `8bbaa632` shown as Connected on the Mac |
+| M6-D1c | Release APK clipboard, both directions | **PASS** — `pbcopy` on the Mac raised `Received from Mac` and the phone clipboard held the text; text sent from the phone arrived in `pbpaste`. Phone app in the foreground, Wi-Fi adb |
+| M6-D1d | Release APK reconnects after Wi-Fi loss | **PASS** — phone Wi-Fi off 8 s then on; Klyndro showed `Status: connected` again within 15 s without any tap. One run only |
 | M6-W2 | Popup explaining Wireless / USB debugging when mirroring cannot start | **PASS** — 3 unit tests, plus manual confirmation by the user that the popup shows and mirroring starts once Wireless debugging is on |
+| M6-F1 | Android file receiver: size cap, in-order chunks, hash check, name sanitising | **PASS** — 14 JVM tests (`FileReceiveSessionTest`) |
+| M6-F2 | Mac file sender: offer/accept/reject, ordered chunks, hash | **PASS** — 7 tests (`FileTransferSenderTests`) |
 | M6-U1 | New logo shown on the Android Home screen, live status pill, dark-mode text | **PASS** — screenshot on Redmi Note 13 5G |
 | M6-U2 | Menu bar icon, Dock icon, Mac main window, Android launcher icon | **NOT TESTED** — Mac menu bar not reachable by script, launcher screenshot did not show the icon |
 | M6-S1 | `scripts/audit-repo.sh` guard checks | **PASS** — 9 checks |
@@ -42,7 +46,7 @@ deduplication, and chunked local-network file transfer (`file.offer` -> `file.ch
 | M5-V1 | Notification & file protocol codecs + fixture conformance tests | **PASS** — 5 new Swift tests (183 total in 28 suites), Android `NotificationMessagesTest` passing |
 | M5-D1 | Android notification forwarded to macOS Notification Center | **PASS** — `cmd notification post` captured by `KlyndroNotificationListener`, sent (`sent: true`), and presented as banner by `usernoted` |
 | M5-D2 | Android -> Mac file transfer with SHA-256 verification | **PASS** — 301 KB image sent from Redmi Note 13 5G, saved to `~/Downloads/` with identical SHA-256 (`1fad05d6541...`) |
-| M5-N1 | Mac -> Android file transfer | **NOT TESTED** — Android -> Mac path shipped & verified first |
+| M5-N1 | Mac -> Android file transfer | **PASS** (M6) — 3,000,000 random bytes sent from the Mac app, saved on the phone to `Download/Klyndro/` with an identical SHA-256 (`669ba057c3cb…bf45`). Release APK, Wi-Fi. One file, one run; large files and a rejected offer were not exercised on a device |
 
 ## M4 — background integration & autoconnect
 
