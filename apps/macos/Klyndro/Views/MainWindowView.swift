@@ -1,6 +1,7 @@
 import AppKit
 import KlyndroKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MainWindowView: View {
     @Environment(AppModel.self) private var model
@@ -69,6 +70,16 @@ struct MainWindowView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    private func chooseFileToSend() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Send"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await model.sendFile(at: url) }
     }
 
     private var statusSection: some View {
@@ -156,6 +167,32 @@ struct MainWindowView: View {
                     if model.isPairingWindowOpen {
                         Text("Pairing window open for 60 seconds")
                             .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Button {
+                            chooseFileToSend()
+                        } label: {
+                            Label("Send file to phone…", systemImage: "arrow.up.doc")
+                        }
+                        .disabled(!model.canSendFile)
+
+                        if let progress = model.fileSendProgress {
+                            ProgressView(value: progress).frame(width: 140)
+                        }
+                    }
+                    if let message = model.fileSendMessage {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else if !model.isConnected {
+                        Text("Connect to a phone to send files.")
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     }
                 }

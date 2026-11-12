@@ -47,6 +47,12 @@ final class AppModel {
 
     let mirroring = MirroringController()
 
+    /// Outbound file transfer to the connected phone. Progress and the last result are surfaced so
+    /// the UI never claims a file arrived when only the offer was sent.
+    private(set) var fileSendProgress: Double?
+    private(set) var fileSendMessage: String?
+    private var fileSender: FileTransferSender?
+
     /// Clipboard activity, surfaced so "sync is on" is backed by something observable.
     private(set) var clipboardSentCount = 0
     private(set) var clipboardAppliedCount = 0
@@ -186,6 +192,32 @@ final class AppModel {
         mirroring.updateToolchain(toolchain)
         await mirroring.refreshDevices()
         await mirroring.autoConnectIfNeeded()
+    }
+
+    // MARK: - File transfer to the phone
+
+    var canSendFile: Bool { fileSender != nil && fileSendProgress == nil }
+
+    func sendFile(at url: URL) async {
+        guard let sender = fileSender else {
+            fileSendMessage = "Connect to a phone first."
+            return
+        }
+        fileSendMessage = nil
+        fileSendProgress = 0
+        defer { fileSendProgress = nil }
+        do {
+            let name = try await sender.sendFile(at: url) { [weak self] fraction in
+                Task { @MainActor in self?.fileSendProgress = fraction }
+            }
+            // The phone confirms nothing after `file.complete`; it verifies the hash itself and
+            // posts its own notification. Say only what this side knows.
+            fileSendMessage = "Sent \(name). The phone checks it and shows a notification when saved."
+        } catch let error as FileSendError {
+            fileSendMessage = error.description
+        } catch {
+            fileSendMessage = "Sending failed."
+        }
     }
 
     // MARK: - Deep links
@@ -438,6 +470,8 @@ final class AppModel {
             NSLog("[Klyndro] forwarding notification from %{public}@", post.appName)
             _ = await NotificationCenterForwarder.shared.requestAuthorization()
             await NotificationCenterForwarder.shared.post(post)
+        case .fileAccept, .fileReject:
+            await fileSender?.handleAnswer(envelope)
         case .fileOffer:
             guard let offer = try? FileMessageCodec.decodeOffer(envelope) else { return }
             let accepted = await FileTransferReceiver.shared.handleOffer(offer)
@@ -500,6 +534,10 @@ final class AppModel {
             NSLog("[Klyndro] session established with %@", info.name)
             upsertConnectedDevice(info, state: .connected)
             await startClipboardIfSupported(info, session: session)
+            fileSender = FileTransferSender { [weak session] envelope in
+                guard let session else { throw FileSendError.sendFailed }
+                try await session.send(envelope)
+            }
             // A paired phone just came online on this network; make it available to mirroring too.
             await mirroring.autoConnectIfNeeded()
         case .message(let envelope):
@@ -507,6 +545,8 @@ final class AppModel {
         case .closed:
             NSLog("[Klyndro] session closed")
             await stopClipboard()
+            fileSender = nil
+            fileSendProgress = nil
             activeSession = nil
             devices = devices.map { row in
                 var updated = row

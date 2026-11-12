@@ -217,6 +217,7 @@ Implemented for local-network transfers using JSON envelope frames (`kind = 0x01
 - `sha256` is the lowercase hex SHA-256 of the complete file content, used for integrity verification upon completion.
 - `data_b64` is standard Base64-encoded chunk payload. Each chunk payload MUST NOT exceed 512 KiB raw (so the JSON envelope remains strictly under the 1 MiB frame limit).
 - Receivers write chunks incrementally or to a temporary file, verify total size and SHA-256 on `file.complete`, resolve filename conflicts (e.g., appending ` (1)`), and move to the configured destination (`~/Downloads` on macOS, `Downloads/Klyndro` on Android).
+- A receiver rejects an offer with `file.reject` and a `reason` instead of accepting it. Reasons used: `busy`, `too-large` (above 2 GiB), `invalid-size`, `invalid-hash`, `storage-unavailable`. Chunks must arrive in order and stay within the offered size; otherwise the receiver abandons the transfer and discards the partial file.
 - Binary `kind = 0x02` chunk frames remain reserved for a future v2 throughput optimization.
 
 ## 6. Error codes
