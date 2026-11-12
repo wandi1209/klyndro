@@ -15,6 +15,7 @@ import id.my.wandidev.klyndro.R
 import id.my.wandidev.klyndro.connection.ConnectionRuntime
 import id.my.wandidev.klyndro.connection.ConnectionStatus
 import id.my.wandidev.klyndro.connection.DiscoveredEntry
+import id.my.wandidev.klyndro.connection.MirrorProofResponder
 import id.my.wandidev.klyndro.discovery.NsdDiscovery
 import id.my.wandidev.klyndro.filetransfer.AndroidFileReceiver
 import id.my.wandidev.klyndro.crypto.AndroidKeyStoreIdentities
@@ -64,6 +65,17 @@ class KlyndroService : Service() {
     private var trustStore: TrustStore? = null
     private var session: PeerSession? = null
     private var fileReceiver: AndroidFileReceiver? = null
+    private val mirrorProof by lazy {
+        MirrorProofResponder(
+            directory = { getExternalFilesDir(null) },
+            scheduleCleanup = { file ->
+                scope.launch {
+                    kotlinx.coroutines.delay(60_000)
+                    runCatching { file.delete() }
+                }
+            }
+        )
+    }
     private var pairingRunner: PairingRunner? = null
     private var discovery: NsdDiscovery? = null
     private val discovered = LinkedHashMap<String, DiscoveredEntry>()
@@ -360,6 +372,8 @@ class KlyndroService : Service() {
                                     event.envelope.messageType == MessageType.CLIPBOARD_ACK
                                 ) {
                                     ConnectionRuntime.publishInbound(event.envelope)
+                                } else if (event.envelope.messageType == MessageType.MIRROR_CHALLENGE) {
+                                    mirrorProof.respond(event.envelope)?.let { ConnectionRuntime.send(it) }
                                 } else if (event.envelope.messageType == MessageType.FILE_OFFER ||
                                     event.envelope.messageType == MessageType.FILE_CHUNK ||
                                     event.envelope.messageType == MessageType.FILE_COMPLETE

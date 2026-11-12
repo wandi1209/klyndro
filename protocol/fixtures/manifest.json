@@ -2,19 +2,84 @@
   "protocol_version": 1,
   "description": "Decoder conformance cases for the Klyndro v1 envelope. Both the macOS and the Android test suites iterate over this manifest.",
   "fixtures": [
-    { "file": "hello.json", "expect": "valid", "type": "hello" },
-    { "file": "hello-ack.json", "expect": "valid", "type": "hello.ack" },
-    { "file": "ping.json", "expect": "valid", "type": "ping" },
-    { "file": "pong.json", "expect": "valid", "type": "pong" },
-    { "file": "clipboard-update.json", "expect": "valid", "type": "clipboard.update" },
-    { "file": "clipboard-ack.json", "expect": "valid", "type": "clipboard.ack" },
-    { "file": "notification-post.json", "expect": "valid", "type": "notification.post" },
-    { "file": "file-offer.json", "expect": "valid", "type": "file.offer" },
-    { "file": "error.json", "expect": "valid", "type": "error" },
-    { "file": "unknown-type.json", "expect": "unknown_type", "type": "future.capability" },
-    { "file": "malformed-missing-type.json", "expect": "malformed" },
-    { "file": "pair-request.json", "expect": "valid", "type": "pair.request" },
-    { "file": "pair-confirm.json", "expect": "valid", "type": "pair.confirm" },
-    { "file": "pair-result.json", "expect": "valid", "type": "pair.result" }
+    {
+      "file": "hello.json",
+      "expect": "valid",
+      "type": "hello"
+    },
+    {
+      "file": "hello-ack.json",
+      "expect": "valid",
+      "type": "hello.ack"
+    },
+    {
+      "file": "ping.json",
+      "expect": "valid",
+      "type": "ping"
+    },
+    {
+      "file": "pong.json",
+      "expect": "valid",
+      "type": "pong"
+    },
+    {
+      "file": "clipboard-update.json",
+      "expect": "valid",
+      "type": "clipboard.update"
+    },
+    {
+      "file": "clipboard-ack.json",
+      "expect": "valid",
+      "type": "clipboard.ack"
+    },
+    {
+      "file": "notification-post.json",
+      "expect": "valid",
+      "type": "notification.post"
+    },
+    {
+      "file": "file-offer.json",
+      "expect": "valid",
+      "type": "file.offer"
+    },
+    {
+      "file": "error.json",
+      "expect": "valid",
+      "type": "error"
+    },
+    {
+      "file": "unknown-type.json",
+      "expect": "unknown_type",
+      "type": "future.capability"
+    },
+    {
+      "file": "malformed-missing-type.json",
+      "expect": "malformed"
+    },
+    {
+      "file": "pair-request.json",
+      "expect": "valid",
+      "type": "pair.request"
+    },
+    {
+      "file": "pair-confirm.json",
+      "expect": "valid",
+      "type": "pair.confirm"
+    },
+    {
+      "file": "pair-result.json",
+      "expect": "valid",
+      "type": "pair.result"
+    },
+    {
+      "file": "mirror-challenge.json",
+      "expect": "valid",
+      "type": "mirror.challenge"
+    },
+    {
+      "file": "mirror-proof.json",
+      "expect": "valid",
+      "type": "mirror.proof"
+    }
   ]
 }

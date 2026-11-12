@@ -52,6 +52,7 @@ final class AppModel {
     private(set) var fileSendProgress: Double?
     private(set) var fileSendMessage: String?
     private var fileSender: FileTransferSender?
+    private var mirrorProof: MirrorProofVerifier?
 
     /// Clipboard activity, surfaced so "sync is on" is backed by something observable.
     private(set) var clipboardSentCount = 0
@@ -218,6 +219,17 @@ final class AppModel {
         } catch {
             fileSendMessage = "Sending failed."
         }
+    }
+
+    private func adbRead(serial: String, path: String) async -> String? {
+        guard let adb = toolchain?.tools.first(where: { $0.name == "adb" })?.path else { return nil }
+        let output = await Task.detached { AdbProcess.run(adb, ["-s", serial, "shell", "cat", path]) }.value
+        return output.status == 0 ? output.text : nil
+    }
+
+    private func adbDelete(serial: String, path: String) async {
+        guard let adb = toolchain?.tools.first(where: { $0.name == "adb" })?.path else { return }
+        _ = await Task.detached { AdbProcess.run(adb, ["-s", serial, "shell", "rm", "-f", path]) }.value
     }
 
     // MARK: - Deep links
@@ -470,6 +482,8 @@ final class AppModel {
             NSLog("[Klyndro] forwarding notification from %{public}@", post.appName)
             _ = await NotificationCenterForwarder.shared.requestAuthorization()
             await NotificationCenterForwarder.shared.post(post)
+        case .mirrorProof:
+            await mirrorProof?.handleProof(envelope)
         case .fileAccept, .fileReject:
             await fileSender?.handleAnswer(envelope)
         case .fileOffer:
@@ -538,6 +552,22 @@ final class AppModel {
                 guard let session else { throw FileSendError.sendFailed }
                 try await session.send(envelope)
             }
+            mirrorProof = MirrorProofVerifier(
+                send: { [weak session] envelope in
+                    guard let session else { throw MirrorProofError.noAnswer }
+                    try await session.send(envelope)
+                },
+                readFile: { [weak self] serial, path in
+                    await self?.adbRead(serial: serial, path: path)
+                },
+                deleteFile: { [weak self] serial, path in
+                    await self?.adbDelete(serial: serial, path: path)
+                }
+            )
+            mirroring.verifySerial = { [weak self] serial in
+                guard let self, let mirrorProof = self.mirrorProof else { return .failure(.notConnected) }
+                return await mirrorProof.verify(serial: serial)
+            }
             // A paired phone just came online on this network; make it available to mirroring too.
             await mirroring.autoConnectIfNeeded()
         case .message(let envelope):
@@ -546,6 +576,8 @@ final class AppModel {
             NSLog("[Klyndro] session closed")
             await stopClipboard()
             fileSender = nil
+            mirrorProof = nil
+            mirroring.verifySerial = nil
             fileSendProgress = nil
             activeSession = nil
             devices = devices.map { row in

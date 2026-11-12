@@ -199,6 +199,31 @@ A peer MUST NOT send `pair.*` on a normal session. Receiving one on an authentic
 session is a protocol violation (`protocol.malformed`) and closes the connection: it is
 either a bug or an attempt to re-pair without user consent.
 
+### 5.4a Mirror device proof (M6)
+
+Screen mirroring runs over `adb`, whose device serial has no relation to a Klyndro device ID. To
+tie an adb serial to the phone that is paired with Klyndro, the Mac asks that phone to prove it
+holds a given adb device:
+
+| Type | Status | Body |
+| --- | --- | --- |
+| `mirror.challenge` | specified (M6) | `token` |
+| `mirror.proof` | specified (M6) | `token`, `ok` |
+
+- `token` is 16 random bytes, lowercase hex (32 characters), fresh for every challenge.
+- On `mirror.challenge` the phone writes `token` to a file named `klyndro-mirror-proof` in its
+  app-specific external files directory (`Android/data/<application id>/files/`) and answers
+  `mirror.proof` with the same `token` and `ok: true`. If it cannot write the file it answers
+  `ok: false`.
+- The Mac then reads that file through the adb serial it intends to mirror, and mirroring is
+  allowed only if the content equals the token. The Mac deletes the file afterwards; the phone
+  also removes it after 60 seconds.
+- A token that is not 32 lowercase hex characters MUST be ignored (no reply, nothing written).
+- This proves that the adb device and the authenticated Klyndro session are the same phone. It
+  does not authenticate the Mac to the phone: adb authorisation remains the phone user's choice.
+- Unknown to older peers, so it is ignored there (§4 rule 5); an old phone simply never answers
+  and mirroring is refused with a message.
+
 ### 5.5 File transfer (M5)
 
 Implemented for local-network transfers using JSON envelope frames (`kind = 0x01`):

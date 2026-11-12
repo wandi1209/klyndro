@@ -14,6 +14,9 @@ final class MirroringController {
     private(set) var state: MirroringState = .idle
     private(set) var lastMessage: String?
     private(set) var isRefreshing = false
+    /// Verifies that the adb device chosen for mirroring is the phone on the Klyndro session.
+    var verifySerial: ((String) async -> Result<Void, MirrorProofError>)?
+
     /// Result of the last Wi-Fi attempt, shown next to the controls. Never contains the pairing code.
     private(set) var wirelessMessage: String?
     private(set) var isConnectingWirelessly = false
@@ -208,11 +211,20 @@ final class MirroringController {
         if !devices.contains(where: \.isUsable) {
             await connectWirelessly()
         }
-        guard devices.contains(where: \.isUsable) else {
+        guard let device = selectedDevice else {
             let guidance = MirroringGuidance.make(devices: devices)
             lastMessage = guidance.message
             present(title: guidance.title, message: guidance.message)
             return
+        }
+
+        if let verifySerial {
+            let result = await verifySerial(device.serial)
+            if case .failure(let error) = result {
+                lastMessage = error.description
+                present(title: "Phone not allowed", message: error.description)
+                return
+            }
         }
         start()
     }

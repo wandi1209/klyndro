@@ -15,6 +15,8 @@ public enum MessageType: Equatable, Sendable, Hashable {
     case fileReject
     case fileChunk
     case fileComplete
+    case mirrorChallenge
+    case mirrorProof
     case pairRequest
     case pairConfirm
     case pairResult
@@ -35,6 +37,8 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case "file.reject": self = .fileReject
         case "file.chunk": self = .fileChunk
         case "file.complete": self = .fileComplete
+        case "mirror.challenge": self = .mirrorChallenge
+        case "mirror.proof": self = .mirrorProof
         case "pair.request": self = .pairRequest
         case "pair.confirm": self = .pairConfirm
         case "pair.result": self = .pairResult
@@ -57,6 +61,8 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case .fileReject: return "file.reject"
         case .fileChunk: return "file.chunk"
         case .fileComplete: return "file.complete"
+        case .mirrorChallenge: return "mirror.challenge"
+        case .mirrorProof: return "mirror.proof"
         case .pairRequest: return "pair.request"
         case .pairConfirm: return "pair.confirm"
         case .pairResult: return "pair.result"
