@@ -27,9 +27,27 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Release signing comes from the environment so no keystore or password is ever committed.
+    // Without KLYNDRO_KEYSTORE the release APK is built unsigned and must be signed afterwards.
+    val releaseKeystore = System.getenv("KLYNDRO_KEYSTORE")
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("KLYNDRO_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KLYNDRO_KEY_ALIAS")
+                keyPassword = System.getenv("KLYNDRO_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            if (releaseKeystore != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

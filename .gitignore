@@ -32,3 +32,9 @@ captures/
 *.local.*
 .env
 .env.*
+
+# Release artefacts and signing material
+dist/
+*.jks
+*.keystore
+*.p12
