@@ -171,9 +171,22 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    fun pair(host: String, port: Int, hostName: String? = null) {
+    fun connectManual(host: String, port: Int) {
         val context = getApplication<Application>()
-        context.startForegroundService(KlyndroService.pairIntent(context, host, port, hostName))
+        context.startForegroundService(KlyndroService.connectIntent(context, host, port))
+    }
+
+    fun pair(
+        host: String,
+        port: Int,
+        hostName: String? = null,
+        persistHost: String? = null,
+        persistHostName: String? = null
+    ) {
+        val context = getApplication<Application>()
+        context.startForegroundService(
+            KlyndroService.pairIntent(context, host, port, hostName, persistHost, persistHostName)
+        )
     }
 
     fun confirmPairing(confirmed: Boolean) {

@@ -7,14 +7,15 @@ integration. It pairs your phone with your Mac over the local network — no acc
 cloud, no relay — and aims to provide shared clipboard, screen mirroring, remote control,
 notifications, and file transfer.
 
-> **Project status: M0-M5 verified on real hardware; M6 (release engineering) builds are in place.**
+> **Project status: M0–M6 verified on real hardware (`v0.1.0` published).**
 > A MacBook Air M3 and a Redmi Note 13 5G (HyperOS 3, Android 15) pair with a six-digit code,
-> reconnect over Wi-Fi with pinned keys, sync text both ways, mirror the screen with scrcpy, and
-> forward Android notifications and files to the Mac. Android only allows clipboard access to the
-> app on screen, so clipboard sync runs while Klyndro is open; that is a platform rule, not a bug.
-> **Not tested:** fullscreen mirroring, background/screen-off
-> clipboard, HyperOS autostart/battery settings, the minified Android release APK on a device,
-> Hardened Runtime at runtime, and notarisation. See
+> reconnect over Wi-Fi with pinned keys, sync text both ways, mirror the screen with scrcpy
+> (scoped to the paired phone via §5.4a challenge/proof), and forward Android notifications and
+> files both ways between phone and Mac. Android only allows clipboard access to the app on screen,
+> so clipboard sync runs while Klyndro is open; that is a platform rule, not a bug.
+> **Not tested / blocked:** fullscreen mirroring, background/screen-off clipboard, HyperOS
+> autostart/battery settings, two-phone mismatch for mirror scoping, and Apple Developer ID
+> notarisation (`BLOCKED` — no Developer ID identity). See
 > [verification status](docs/testing/verification-status.md) and the
 > [security review](docs/security/review-checklist.md).
 
@@ -28,7 +29,7 @@ notifications, and file transfer.
 | M3 | Screen mirroring via scrcpy | **Verified on device** (USB + Wi-Fi, mouse/keyboard control, rotate, resize, screen-off, clean stop); fullscreen NOT verified |
 | M4 | Login item, menu bar integration, reconnect, Android service lifecycle | **Verified on device** (Android auto-connect on resume, mDNS trigger, backoff retry, macOS NWPathMonitor & sleep/wake) |
 | M5 | Notifications, file transfer | **Verified on device** (Android -> Mac notification banner + chunked file transfer with SHA-256 verification) |
-| M6 | Release engineering, packaging, security review | **Builds and docs done**; signed/notarised distribution and on-device test of release builds NOT TESTED |
+| M6 | Release engineering, packaging, security review | **Verified on device (`v0.1.0`)** — signed Android APK & ad-hoc macOS DMG verified on hardware; Developer ID notarisation **BLOCKED** |
 
 ## Features
 
@@ -146,22 +147,18 @@ These are platform facts, not missing polish. Each is documented with sources in
 
 ## Known gaps
 
-- No UI tests on either platform. The macOS app was launched and its Bonjour advertisement
-  verified with `dns-sd`; its controls were not exercised. The Android APK has been installed and
-  its Devices screen observed rendering, but its controls have not been exercised in a live
-  session.
-- Manual IP entry (F01) is specified but not in the UI.
-- A pairing made over the USB button stores `127.0.0.1` as the Mac's address, which goes stale
-  when the tunnel drops; the reconnect fallback hides this rather than fixing the stored value.
-- Releases are ad-hoc signed on macOS and unsigned on Android unless you supply your own keys
-  ([release guide](docs/development/release.md)). No Developer ID identity was available, so
-  notarisation has not been run.
+- No automated UI tests (`XCUITest` / Compose UI test) on either platform; live device sessions
+  exercised pairing, clipboard, mirroring, notifications, file transfer, and manual IP entry
+  (`F01`) manually and via `uiautomator`/deep links.
+- macOS releases are ad-hoc signed because no Developer ID identity is available for
+  notarisation. GitHub Release Android APKs are signed with the release keystore; local builds
+  without `KLYNDRO_KEYSTORE` produce an unsigned APK ([release guide](docs/development/release.md)).
 
 ## Roadmap
 
-All planned milestones have an implementation. Remaining work is verification and distribution:
-run the signed release builds on a device pair, test Mac -> Android file transfer, and obtain a
-Developer ID identity for notarised macOS builds. See the
+All planned milestones (M0–M6) are implemented and verified on hardware (`v0.1.0`), and both
+open code gaps (`F01` manual IP fallback and USB `lastHost` healing) are verified on device.
+Remaining work is obtaining an Apple Developer ID identity for notarised macOS builds. See the
 [architecture overview](docs/architecture/overview.md) and the
 [protocol specification](protocol/specification/klyndro-protocol-v1.md).
 

@@ -19,14 +19,14 @@ audit.
 | S10 | Sensitive Android permissions never enabled silently | **PASS** | Notification access is opened through system settings by user tap; the app never requests Accessibility. `PermissionsScreen` shows real state |
 | S11 | Mirroring is limited to Klyndro-paired devices | **PASS** | Protocol §5.4a (`mirror.challenge`/`mirror.proof`) binds the adb serial to the active Klyndro TLS session and fails closed when disconnected. Verified by 18 unit tests and on Redmi Note 13 5G (connected allowed, disconnected refused); two-device hardware mismatch **NOT TESTED** |
 | S12 | Mac app runs under Hardened Runtime for distribution | **PASS (ad-hoc)** | Release app re-signed with `--options runtime` launched, advertised over Bonjour and held a session with the phone. Not tested with a Developer ID or after notarisation |
-| S13 | Release Android build is shrunk and signed from external secrets | **PASS (build) / NOT TESTED (runtime)** | `assembleRelease` succeeds with R8; `apksigner verify` passes for a throwaway key. The minified APK was **not run on a device** |
+| S13 | Release Android build is shrunk and signed from external secrets | **PASS** | `assembleRelease` succeeds with R8; `apksigner verify` passes; `v0.1.0` CI-signed APK (`CN=Klyndro`) installed and verified on Redmi Note 13 5G (pairing, bidirectional clipboard, mirror scoping) |
 | S14 | Mac app is not sandboxed | **ACCEPTED RISK** | ADR 0006: needed to launch scrcpy/adb. Mitigation: open source, signed releases, no listeners other than the paired session |
 
 ## Known weaknesses
 
 - Ad-hoc signed macOS builds carry no publisher identity. Users must verify the SHA-256 against a
   value published through a separate channel.
-- A pairing made over the USB path stores `127.0.0.1` as last host (functional defect, not a
-  confidentiality issue).
+- A pairing made over the USB path previously stored `127.0.0.1` as last host; fixed via
+  `PeerAddressPolicy` (`ManualEndpointTest` **PASS** and verified on Redmi Note 13 5G).
 - Notification text is forwarded in clear *inside* the TLS session; it is shown by macOS and
   subject to the user's Notification Center settings.

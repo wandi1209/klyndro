@@ -27,7 +27,11 @@
     <string name="devices_empty_title">No paired devices</string>
     <string name="devices_empty_body">Start pairing on the Mac, then pick it from the list below. Both devices show a six-digit code that must match before anything is trusted.</string>
     <string name="devices_manual_address">Manual address (fallback)</string>
-    <string name="devices_manual_hint">Not available yet. Discovery uses mDNS on the local network.</string>
+    <string name="devices_manual_hint">Enter your Mac’s IP or IP:port when mDNS is blocked (port defaults to 47823).</string>
+    <string name="devices_manual_label">Mac IP or IP:port</string>
+    <string name="devices_manual_invalid">Enter a valid IPv4 address or hostname, with optional :port (1–65535).</string>
+    <string name="devices_manual_pair">Pair</string>
+    <string name="devices_manual_connect">Connect</string>
 
     <!-- Permissions -->
     <string name="permissions_title">Permissions</string>

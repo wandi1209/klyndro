@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.my.wandidev.klyndro.R
 import id.my.wandidev.klyndro.connection.ConnectionStatus
 import id.my.wandidev.klyndro.connection.DiscoveredEntry
+import id.my.wandidev.klyndro.net.ManualEndpoint
 import id.my.wandidev.klyndro.ui.InfoCard
 import id.my.wandidev.klyndro.ui.ScreenColumn
 import id.my.wandidev.klyndro.ui.ScreenHeader
@@ -41,6 +42,9 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
     val discovered by viewModel.discovered.collectAsStateWithLifecycle()
     var started by remember { mutableStateOf(false) }
     var manualText by remember { mutableStateOf("") }
+    var manualAddress by remember { mutableStateOf("") }
+    var manualAddressError by remember { mutableStateOf<String?>(null) }
+    val manualInvalidMessage = stringResource(R.string.devices_manual_invalid)
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -133,10 +137,83 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
                             Button(onClick = { viewModel.pair(entry.host, entry.port, entry.hostName) }) {
                                 Text("Pair")
                             }
-                            OutlinedButton(onClick = { viewModel.pair("127.0.0.1", entry.port, null) }) {
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.pair(
+                                        host = "127.0.0.1",
+                                        port = entry.port,
+                                        hostName = null,
+                                        persistHost = entry.host,
+                                        persistHostName = entry.hostName
+                                    )
+                                }
+                            ) {
                                 Text("USB")
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // Manual IP[:port] fallback (F01) for networks where mDNS is filtered or IP changed.
+        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.devices_manual_address),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = stringResource(R.string.devices_manual_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = manualAddress,
+                    onValueChange = {
+                        manualAddress = it
+                        if (manualAddressError != null) manualAddressError = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.devices_manual_label)) },
+                    placeholder = { Text("192.168.1.20 or 192.168.1.20:47823") },
+                    isError = manualAddressError != null,
+                    supportingText = manualAddressError?.let { errorText ->
+                        { Text(errorText) }
+                    },
+                    singleLine = true
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            val endpoint = ManualEndpoint.parse(manualAddress)
+                            if (endpoint == null) {
+                                manualAddressError = manualInvalidMessage
+                            } else {
+                                manualAddressError = null
+                                viewModel.pair(endpoint.host, endpoint.port, null)
+                            }
+                        },
+                        enabled = manualAddress.isNotBlank()
+                    ) {
+                        Text(stringResource(R.string.devices_manual_pair))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            val endpoint = ManualEndpoint.parse(manualAddress)
+                            if (endpoint == null) {
+                                manualAddressError = manualInvalidMessage
+                            } else {
+                                manualAddressError = null
+                                viewModel.connectManual(endpoint.host, endpoint.port)
+                            }
+                        },
+                        enabled = manualAddress.isNotBlank()
+                    ) {
+                        Text(stringResource(R.string.devices_manual_connect))
                     }
                 }
             }

@@ -28,6 +28,7 @@ import id.my.wandidev.klyndro.net.LocalDeviceInfo
 import id.my.wandidev.klyndro.net.PairingEvent
 import id.my.wandidev.klyndro.net.PairingLocalInfo
 import id.my.wandidev.klyndro.net.PairingRunner
+import id.my.wandidev.klyndro.net.PeerAddressPolicy
 import id.my.wandidev.klyndro.net.PeerSession
 import id.my.wandidev.klyndro.net.PeerSessionEvent
 import id.my.wandidev.klyndro.net.PinPolicy
@@ -104,17 +105,23 @@ class KlyndroService : Service() {
                 val rawHost = intent.getStringExtra(EXTRA_HOST)
                 val host = rawHost?.let { preferReachableAddress(it, intent.getStringExtra(EXTRA_HOSTNAME)) }
                 val port = intent.getIntExtra(EXTRA_PORT, 0)
+                val rawPersistHost = intent.getStringExtra(EXTRA_PERSIST_HOST)
+                val persistHost = rawPersistHost?.let {
+                    preferReachableAddress(it, intent.getStringExtra(EXTRA_PERSIST_HOSTNAME))
+                }
                 if (host != null && port > 0) {
                     ConnectionRuntime.update {
                         it.copy(serviceRunning = true, phase = ConnectionStatus.Phase.PAIRING)
                     }
-                    startPairing(host, port)
+                    startPairing(host, port, persistHost)
                 }
             }
 
             ACTION_CONNECT -> {
+                val overrideHost = intent.getStringExtra(EXTRA_HOST)
+                val overridePort = intent.getIntExtra(EXTRA_PORT, 0).takeIf { it > 0 }
                 ConnectionRuntime.update { it.copy(serviceRunning = true) }
-                startConnecting()
+                startConnecting(overrideHost, overridePort)
             }
 
             ACTION_STOP -> {
@@ -135,7 +142,7 @@ class KlyndroService : Service() {
 
     // MARK: - Pairing
 
-    private fun startPairing(host: String, port: Int) {
+    private fun startPairing(host: String, port: Int, persistHost: String? = null) {
         connectionJob?.cancel()
         connectionJob = scope.launch {
             val local = ensureIdentity() ?: return@launch
@@ -153,6 +160,15 @@ class KlyndroService : Service() {
                     scope = scope
                 )
 
+                val discoveredHost = synchronized(discovered) {
+                    discovered.values.firstOrNull { !PeerAddressPolicy.isLoopbackHost(it.host) }?.host
+                }
+                val initialPersistHost = PeerAddressPolicy.resolvePersistHost(
+                    dialHost = host,
+                    preferredHost = persistHost,
+                    discoveredHost = null
+                )
+
                 val runner = PairingRunner(
                     transport = transport,
                     local = PairingLocalInfo(
@@ -165,7 +181,7 @@ class KlyndroService : Service() {
                     role = PeerSession.Role.INITIATOR,
                     trustStore = store,
                     window = PairingWindow(),
-                    peerHost = host,
+                    peerHost = initialPersistHost,
                     peerPort = port
                 )
                 pairingRunner = runner
@@ -182,6 +198,17 @@ class KlyndroService : Service() {
                             }
 
                             is PairingEvent.Paired -> {
+                                val matchedDiscoveredHost = synchronized(discovered) {
+                                    discovered[event.peer.deviceId]?.host
+                                } ?: discoveredHost
+                                val healedHost = PeerAddressPolicy.resolvePersistHost(
+                                    dialHost = event.peer.lastHost ?: host,
+                                    preferredHost = persistHost,
+                                    discoveredHost = matchedDiscoveredHost
+                                )
+                                if (healedHost != event.peer.lastHost) {
+                                    runCatching { store.upsert(event.peer.copy(lastHost = healedHost)) }
+                                }
                                 ConnectionRuntime.update {
                                     it.copy(
                                         phase = ConnectionStatus.Phase.CONNECTED,
@@ -222,7 +249,7 @@ class KlyndroService : Service() {
 
     // MARK: - Connecting
 
-    private fun startConnecting() {
+    private fun startConnecting(overrideHost: String? = null, overridePort: Int? = null) {
         connectionJob?.cancel()
         connectionJob = scope.launch {
             val local = ensureIdentity() ?: return@launch
@@ -231,7 +258,7 @@ class KlyndroService : Service() {
             val host = peer?.lastHost
             val port = peer?.lastPort
 
-            if (host == null || port == null) {
+            if (peer == null || ((host == null || port == null) && (overrideHost == null || overridePort == null))) {
                 ConnectionRuntime.update {
                     it.copy(
                         phase = ConnectionStatus.Phase.ERROR,
@@ -246,18 +273,26 @@ class KlyndroService : Service() {
             }
 
             // The stored address can go stale (USB tunnel dropped, DHCP change). A live mDNS
-            // record for the same device is a better second guess than giving up.
+            // record for the same device or a user-entered fallback address is tried as well.
             val currentlyDiscovered = ConnectionRuntime.discovered.value
             android.util.Log.i(
                 TAG_CONNECT,
                 "peer.deviceId=${peer.deviceId} discovered=${currentlyDiscovered.map { it.deviceId + "@" + it.host + ":" + it.port }}"
             )
             val targets = buildList {
-                add(host to port)
+                if (overrideHost != null && overridePort != null) {
+                    add(overrideHost to overridePort)
+                }
+                if (host != null && port != null && (host != overrideHost || port != overridePort)) {
+                    add(host to port)
+                }
                 currentlyDiscovered
                     .firstOrNull { it.deviceId == peer.deviceId }
                     ?.let { found ->
-                        if (found.host != host || found.port != port) add(found.host to found.port)
+                        val isOverride = found.host == overrideHost && found.port == overridePort
+                        if (!isOverride && (found.host != host || found.port != port)) {
+                            add(found.host to found.port)
+                        }
                     }
             }
 
@@ -352,6 +387,11 @@ class KlyndroService : Service() {
                             is PeerSessionEvent.Established -> {
                                 established = true
                                 reconnectAttempt = 0
+                                store.peer(event.info.deviceId.hex)?.let { existing ->
+                                    id.my.wandidev.klyndro.net.PeerAddressPolicy
+                                        .updatedPeerOnConnect(existing, host, port)
+                                        ?.let { updated -> runCatching { store.upsert(updated) } }
+                                }
                                 android.util.Log.i(TAG_CONNECT, "session established with ${event.info.name}")
                                 ConnectionRuntime.update {
                                     it.copy(
@@ -585,6 +625,8 @@ class KlyndroService : Service() {
         const val EXTRA_HOST = "host"
         const val EXTRA_PORT = "port"
         const val EXTRA_HOSTNAME = "hostname"
+        const val EXTRA_PERSIST_HOST = "persist_host"
+        const val EXTRA_PERSIST_HOSTNAME = "persist_hostname"
 
         private const val CHANNEL_ID = "klyndro-connection"
         private const val NOTIFICATION_ID = 1
@@ -599,11 +641,25 @@ class KlyndroService : Service() {
         fun intent(context: Context, action: String): Intent =
             Intent(context, KlyndroService::class.java).setAction(action)
 
-        fun pairIntent(context: Context, host: String, port: Int, hostName: String?): Intent =
+        fun connectIntent(context: Context, host: String, port: Int): Intent =
+            intent(context, ACTION_CONNECT)
+                .putExtra(EXTRA_HOST, host)
+                .putExtra(EXTRA_PORT, port)
+
+        fun pairIntent(
+            context: Context,
+            host: String,
+            port: Int,
+            hostName: String?,
+            persistHost: String? = null,
+            persistHostName: String? = null
+        ): Intent =
             intent(context, ACTION_PAIR)
                 .putExtra(EXTRA_HOST, host)
                 .putExtra(EXTRA_PORT, port)
                 .putExtra(EXTRA_HOSTNAME, hostName)
+                .putExtra(EXTRA_PERSIST_HOST, persistHost)
+                .putExtra(EXTRA_PERSIST_HOSTNAME, persistHostName)
 
         /**
          * NSD often resolves a Mac to an IPv6 link-local address with an interface zone, which is

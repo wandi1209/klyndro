@@ -20,7 +20,7 @@ unverified.
 | M6-B2 | macOS ad-hoc signature valid, zip + DMG produced | **PASS** — `codesign --verify --deep --strict` clean; `Klyndro-macOS-0.1.0.zip/.dmg` written |
 | M6-B3 | Android release build with R8 and resource shrinking | **PASS (build)** — `assembleRelease` succeeds, APK 4.6 MB (debug 36.7 MB) |
 | M6-B4 | Android release APK signed from external keystore | **PASS** — throwaway key, `apksigner verify` OK (v2 scheme) |
-| M6-D1 | Minified release APK runs on the device and connects | **NOT TESTED** — installing over the debug build would uninstall it and delete the phone's pairing; not done without user approval |
+| M6-D1 | Minified release APK runs on the device and connects | **PASS** (`v0.1.0`) — signed `Klyndro-android-release.apk` (`CN=Klyndro`) + `Klyndro-macOS-0.1.0.dmg` paired (`040 968`), synced clipboard both ways, and passed `M6-M1` mirror scoping on Redmi Note 13 5G (`hiam6hf6lfsshuif`) |
 | M6-D2 | macOS Hardened Runtime build runs and connects | **PASS** — copy of the Release app signed with `codesign --options runtime` (`flags=adhoc,runtime`) advertised `_klyndro._tcp`, listened on 47823 and connected to the phone (`Status: connected`). Caveat: the phone's first attempt had failed (`ECONNREFUSED`, from the previous app instance) and did not retry by itself within about 45 s; it connected after Stop then Start on the phone. Notarised/Developer ID signing is still **BLOCKED** |
 | M6-D3 | Developer ID signing and notarisation | **BLOCKED** — no Developer ID identity on this machine |
 | M6-W1 | Mirroring finds and connects the phone over Wi-Fi automatically, no USB | **PASS** — see `docs/architecture/mirroring.md`. Pairing form **NOT TESTED** |
@@ -34,7 +34,8 @@ unverified.
 | M6-U1 | New logo shown on the Android Home screen, live status pill, dark-mode text | **PASS** — screenshot on Redmi Note 13 5G |
 | M6-U2 | Menu bar icon, Dock icon, Mac main window, Android launcher icon | **PASS (Android) / PARTIAL (macOS)** — Android launcher icon visually verified via App Info screenshot (`hiam6hf6lfsshuif`); macOS `AppIcon.icns` and `Assets.car` (`AppIcon`, `MenuBarIcon`) verified via `assetutil` in bundle, Mac UI live visual check **NOT TESTED** by script |
 | M6-S1 | `scripts/audit-repo.sh` guard checks | **PASS** — 9 checks |
-| M6-S2 | Security review | See [review checklist](../security/review-checklist.md): S9 **PASS**, S11 **PASS** (two-device hardware mismatch NOT TESTED), S12 **PASS (ad-hoc)** (Developer ID **BLOCKED**) |
+| M6-S2 | Security review | See [review checklist](../security/review-checklist.md): S9 **PASS**, S11 **PASS** (two-device hardware mismatch NOT TESTED), S12 **PASS (ad-hoc)** (Developer ID **BLOCKED**), S13 **PASS** |
+| M6-F01 | Manual IP[:port] entry (`F01`) and USB `lastHost` healing (`PeerAddressPolicy`) | **PASS** — 5 JVM tests (`ManualEndpointTest`) + verified on Redmi Note 13 5G (`hiam6hf6lfsshuif`): invalid `999.1.2.3` inline error shown, manual `Pair` (`192.168.23.101`, default `47823`) paired (`835 597`), manual `Connect` succeeded with `discovered=[]`, and USB pairing (`127.0.0.1:47823`, `742 723`) healed stored `lastHost` to `192.168.23.101:47823` on reconnect after `adb reverse --remove-all` |
 
 ## M5 — notification forwarding & file transfer
 
@@ -130,8 +131,9 @@ wired into the live session, with responder pairing over the `klyndro://pair` de
 
 - The pairing sheet on macOS cannot be dismissed after a failure was fixed in code, but the fix was
   only exercised by rebuilding and re-pairing, not by a UI test.
-- Stored `lastHost` is whatever address was used to pair. A USB pairing stores `127.0.0.1`, which
-  goes stale; the reconnect fallback masks this rather than correcting the stored address.
+- Stored `lastHost` after USB pairing / DHCP change: **PASS** — fixed via `PeerAddressPolicy`
+  and verified on Redmi Note 13 5G (`hiam6hf6lfsshuif`): USB pairing healed stored `lastHost`
+  from `127.0.0.1` to `192.168.23.101:47823` directly on reconnect with `discovered=[]`.
 - On macOS the paired phone's stored `lastHost`/`lastPort` is the phone's ephemeral source port and
   is not usable for dialling. The Mac never dials today, so it is harmless, but it is wrong data.
 - Stopping the Android service clears discovery, and the next start dials before mDNS resolves.
