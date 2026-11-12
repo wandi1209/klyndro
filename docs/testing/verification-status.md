@@ -30,6 +30,7 @@ unverified.
 | M6-W2 | Popup explaining Wireless / USB debugging when mirroring cannot start | **PASS** — 3 unit tests, plus manual confirmation by the user that the popup shows and mirroring starts once Wireless debugging is on |
 | M6-F1 | Android file receiver: size cap, in-order chunks, hash check, name sanitising | **PASS** — 14 JVM tests (`FileReceiveSessionTest`) |
 | M6-F2 | Mac file sender: offer/accept/reject, ordered chunks, hash | **PASS** — 7 tests (`FileTransferSenderTests`) |
+| M6-M1 | Mirror raw-input scoping: mirror challenge/proof binds adb serial to paired phone | **PASS (logic)** — 18 tests (`MirrorProofTests`, `MirrorProofResponderTest`); **NOT TESTED** on a phone (no device attached) |
 | M6-U1 | New logo shown on the Android Home screen, live status pill, dark-mode text | **PASS** — screenshot on Redmi Note 13 5G |
 | M6-U2 | Menu bar icon, Dock icon, Mac main window, Android launcher icon | **NOT TESTED** — Mac menu bar not reachable by script, launcher screenshot did not show the icon |
 | M6-S1 | `scripts/audit-repo.sh` guard checks | **PASS** — 9 checks |

@@ -132,7 +132,7 @@ every time Wireless debugging is toggled, which is why it is read from Bonjour a
 
 ## Known limits
 
-- **adb serial is not a Klyndro device ID.** Nothing ties the device chosen for mirroring to a
+- **adb serial is not a Klyndro device ID.** A challenge/proof over the authenticated session (§5.4a) now binds the adb serial to the paired phone; verified by unit tests but not yet on hardware. Nothing ties the device chosen for mirroring to a
   phone paired with Klyndro, so any authorized adb device can be mirrored. The picker shows
   every adb device; the requirement to scope ADB to trusted devices is **not met** yet. The
   honest way to close it is matching on a value the phone reports over the authenticated Klyndro
@@ -168,6 +168,7 @@ scrcpy window with synthesized mouse and key events.
 | Wi-Fi connect when a foreign adb server (started from a terminal) is running | **PASS** — failed with `No route to host`; after `adb kill-server` the app-started server connected. The app now restarts the server once on that error. The restart-on-error path itself was **NOT TESTED** end to end |
 | Popup when no phone is usable (Wi-Fi: Wireless debugging, USB: USB debugging) | **PASS** — logic by 3 unit tests; popup and the Wi-Fi start flow confirmed on screen by the user (manual, not scripted) |
 | Wireless mirroring (`--tcpip`) | **NOT TESTED** — requires running `adb tcpip` which opens port 5555; avoided in favour of Android 11+ Wireless Debugging |
+| Mirroring scoped to the Klyndro-paired phone (protocol §5.4a challenge/proof) | **PASS (logic)** — 12 Swift + 6 JVM unit tests. End-to-end on a phone **NOT TESTED**: the discovery of a fresh handshake-permission bug means the device run is still pending |
 | First-time wireless pairing (`adb pair`) from the app form | **NOT TESTED** — the phone was already paired. A terminal `adb pair` failed twice with `protocol fault` for an unestablished reason |
 | Restart after network drop | **NOT TESTED** — there is no auto-restart |
 | UI text for `unauthorized` / missing scrcpy | **NOT TESTED** on screen; the strings are unit-tested |
