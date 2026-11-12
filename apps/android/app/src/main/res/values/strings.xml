@@ -103,6 +103,10 @@
     <string name="about_license_value">MIT</string>
     <string name="about_application_id">Application ID</string>
 
+    <!-- File transfer -->
+    <string name="file_received_title">File received from Mac</string>
+    <string name="file_received_body">%1$s saved to Downloads/Klyndro</string>
+
     <!-- Status pill -->
     <string name="status_connected">Connected</string>
     <string name="status_connected_to">Connected to %1$s</string>

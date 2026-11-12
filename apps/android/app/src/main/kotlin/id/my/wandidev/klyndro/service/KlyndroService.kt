@@ -16,6 +16,7 @@ import id.my.wandidev.klyndro.connection.ConnectionRuntime
 import id.my.wandidev.klyndro.connection.ConnectionStatus
 import id.my.wandidev.klyndro.connection.DiscoveredEntry
 import id.my.wandidev.klyndro.discovery.NsdDiscovery
+import id.my.wandidev.klyndro.filetransfer.AndroidFileReceiver
 import id.my.wandidev.klyndro.crypto.AndroidKeyStoreIdentities
 import id.my.wandidev.klyndro.crypto.DeviceIdentity
 import id.my.wandidev.klyndro.crypto.EncryptedTrustStore
@@ -62,6 +63,7 @@ class KlyndroService : Service() {
     private var identity: DeviceIdentity? = null
     private var trustStore: TrustStore? = null
     private var session: PeerSession? = null
+    private var fileReceiver: AndroidFileReceiver? = null
     private var pairingRunner: PairingRunner? = null
     private var discovery: NsdDiscovery? = null
     private val discovered = LinkedHashMap<String, DiscoveredEntry>()
@@ -326,6 +328,11 @@ class KlyndroService : Service() {
                         true
                     }.getOrDefault(false)
                 }
+                fileReceiver = AndroidFileReceiver(
+                    context = this,
+                    send = { envelope -> ConnectionRuntime.send(envelope) },
+                    onSaved = { name -> notifyFileSaved(name) }
+                )
 
                 scope.launch {
                     for (event in newSession.events()) {
@@ -353,11 +360,18 @@ class KlyndroService : Service() {
                                     event.envelope.messageType == MessageType.CLIPBOARD_ACK
                                 ) {
                                     ConnectionRuntime.publishInbound(event.envelope)
+                                } else if (event.envelope.messageType == MessageType.FILE_OFFER ||
+                                    event.envelope.messageType == MessageType.FILE_CHUNK ||
+                                    event.envelope.messageType == MessageType.FILE_COMPLETE
+                                ) {
+                                    fileReceiver?.handle(event.envelope)
                                 }
                             }
 
                             is PeerSessionEvent.Closed -> {
                                 android.util.Log.i(TAG_CONNECT, "session closed")
+                                fileReceiver?.abort()
+                                fileReceiver = null
                                 ConnectionRuntime.detachSender()
                                 session = null
                                 ConnectionRuntime.update {
@@ -532,6 +546,19 @@ class KlyndroService : Service() {
             .build()
     }
 
+    /** Shown when a file from the Mac has been verified and saved. Names the file, never its content. */
+    private fun notifyFileSaved(displayName: String) {
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(R.string.file_received_title))
+            .setContentText(getString(R.string.file_received_body, displayName))
+            .setSmallIcon(R.drawable.ic_klyndro_mark)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        manager.notify(FILE_NOTIFICATION_ID, notification)
+    }
+
     private fun updateNotification(text: String) {
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification(text))
@@ -547,6 +574,7 @@ class KlyndroService : Service() {
 
         private const val CHANNEL_ID = "klyndro-connection"
         private const val NOTIFICATION_ID = 1
+        private const val FILE_NOTIFICATION_ID = 2
         private const val PREFS_DEVICE = "klyndro_device"
         private const val PREFS_TRUST = "klyndro_trust"
         private const val KEY_DEVICE_ID = "device_id"
