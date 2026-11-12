@@ -32,9 +32,9 @@ unverified.
 | M6-F2 | Mac file sender: offer/accept/reject, ordered chunks, hash | **PASS** — 7 tests (`FileTransferSenderTests`) |
 | M6-M1 | Mirror raw-input scoping: mirror challenge/proof binds adb serial to paired phone | **PASS** — 18 unit tests (`MirrorProofTests`, `MirrorProofResponderTest`) + verified on Redmi Note 13 5G (`hiam6hf6lfsshuif`, Debug build): connected session verifies and cleans up `/sdcard/Android/data/id.my.wandidev.klyndro/files/klyndro-mirror-proof` before launching `scrcpy`; disconnected phone (`Status: stopped`) is refused (fixed fail-open `verifySerial = nil` bug in `AppModel`). Two-device mismatch on hardware **NOT TESTED** (single phone attached; covered in unit tests) |
 | M6-U1 | New logo shown on the Android Home screen, live status pill, dark-mode text | **PASS** — screenshot on Redmi Note 13 5G |
-| M6-U2 | Menu bar icon, Dock icon, Mac main window, Android launcher icon | **NOT TESTED** — Mac menu bar not reachable by script, launcher screenshot did not show the icon |
+| M6-U2 | Menu bar icon, Dock icon, Mac main window, Android launcher icon | **PASS (Android) / PARTIAL (macOS)** — Android launcher icon visually verified via App Info screenshot (`hiam6hf6lfsshuif`); macOS `AppIcon.icns` and `Assets.car` (`AppIcon`, `MenuBarIcon`) verified via `assetutil` in bundle, Mac UI live visual check **NOT TESTED** by script |
 | M6-S1 | `scripts/audit-repo.sh` guard checks | **PASS** — 9 checks |
-| M6-S2 | Security review | See [review checklist](../security/review-checklist.md): S11 **PASS** (scoped via challenge/proof; two-device hardware mismatch NOT TESTED), 2 partial/NOT TESTED (S9, S12 Developer ID) |
+| M6-S2 | Security review | See [review checklist](../security/review-checklist.md): S9 **PASS**, S11 **PASS** (two-device hardware mismatch NOT TESTED), S12 **PASS (ad-hoc)** (Developer ID **BLOCKED**) |
 
 ## M5 — notification forwarding & file transfer
 
