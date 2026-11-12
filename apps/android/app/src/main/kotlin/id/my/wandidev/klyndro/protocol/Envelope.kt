@@ -20,6 +20,8 @@ enum class MessageType(val wireName: String?) {
     MIRROR_PROOF("mirror.proof"),
     MIRROR_STREAM_START("mirror.stream.start"),
     MIRROR_STREAM_STOP("mirror.stream.stop"),
+    INPUT_GESTURE("input.gesture"),
+    INPUT_ACTION("input.action"),
     PAIR_REQUEST("pair.request"),
     PAIR_CONFIRM("pair.confirm"),
     PAIR_RESULT("pair.result"),

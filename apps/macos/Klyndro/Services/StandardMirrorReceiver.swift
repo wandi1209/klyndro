@@ -12,6 +12,7 @@ import Observation
 final class StandardMirrorReceiver {
     private(set) var statusText = "Waiting for phone consent…"
     private(set) var isStreaming = false
+    private(set) var videoSize: CGSize?
     let displayLayer = AVSampleBufferDisplayLayer()
 
     private let pipeline: StreamPipeline
@@ -38,6 +39,11 @@ final class StandardMirrorReceiver {
                     self.isStreaming = true
                     self.statusText = "Streaming (Standard Mode · No ADB)"
                 }
+            }
+        }
+        self.pipeline.onVideoSize = { [weak self] size in
+            Task { @MainActor [weak self] in
+                self?.videoSize = size
             }
         }
     }
@@ -69,6 +75,7 @@ private final class StreamPipeline: @unchecked Sendable {
 
     var onStatus: (@Sendable (String, Bool) -> Void)?
     var onSample: (@Sendable (SendableSampleBuffer) -> Void)?
+    var onVideoSize: (@Sendable (CGSize) -> Void)?
 
     init(streamID: String, identity: DeviceIdentity, policy: PinPolicy) {
         self.streamID = streamID
@@ -271,6 +278,10 @@ private final class StreamPipeline: @unchecked Sendable {
         }
         if status == noErr, let newFormat {
             formatDescription = newFormat
+            let dims = CMVideoFormatDescriptionGetDimensions(newFormat)
+            if dims.width > 0 && dims.height > 0 {
+                onVideoSize?(CGSize(width: Int(dims.width), height: Int(dims.height)))
+            }
         }
     }
 }

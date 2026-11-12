@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "5f4e3d2c-1b0a-4f9e-8d7c-6b5a4f3e2d1c",
+  "type": "input.action",
+  "ts": 1762800012000,
+  "body": {
+    "action": "home"
+  }
+}

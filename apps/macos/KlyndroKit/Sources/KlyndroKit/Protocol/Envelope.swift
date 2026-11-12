@@ -19,6 +19,8 @@ public enum MessageType: Equatable, Sendable, Hashable {
     case mirrorProof
     case mirrorStreamStart
     case mirrorStreamStop
+    case inputGesture
+    case inputAction
     case pairRequest
     case pairConfirm
     case pairResult
@@ -43,6 +45,8 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case "mirror.proof": self = .mirrorProof
         case "mirror.stream.start": self = .mirrorStreamStart
         case "mirror.stream.stop": self = .mirrorStreamStop
+        case "input.gesture": self = .inputGesture
+        case "input.action": self = .inputAction
         case "pair.request": self = .pairRequest
         case "pair.confirm": self = .pairConfirm
         case "pair.result": self = .pairResult
@@ -69,6 +73,8 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case .mirrorProof: return "mirror.proof"
         case .mirrorStreamStart: return "mirror.stream.start"
         case .mirrorStreamStop: return "mirror.stream.stop"
+        case .inputGesture: return "input.gesture"
+        case .inputAction: return "input.action"
         case .pairRequest: return "pair.request"
         case .pairConfirm: return "pair.confirm"
         case .pairResult: return "pair.result"

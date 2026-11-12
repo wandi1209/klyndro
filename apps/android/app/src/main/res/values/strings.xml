@@ -49,6 +49,11 @@
     <string name="permissions_state_granted">Granted</string>
     <string name="permissions_state_not_required">Not granted</string>
     <string name="permissions_open_settings">Open app settings</string>
+    <string name="permissions_accessibility_title">Remote control (Standard Mode)</string>
+    <string name="permissions_accessibility_body">Optional. Enables tap, swipe, scroll, Back, Home, and Recents from your Mac without ADB. On Android 13–15 / HyperOS sideloaded APKs, open App info → ⋮ → Allow restricted settings before enabling Accessibility.</string>
+    <string name="permissions_open_accessibility">Open Accessibility settings</string>
+    <string name="accessibility_service_label">Klyndro Remote Control</string>
+    <string name="accessibility_service_description">Allows your paired Mac to send tap, swipe, and navigation gestures during Standard Mirroring.</string>
 
     <!-- Settings -->
     <string name="settings_features_title">Features</string>

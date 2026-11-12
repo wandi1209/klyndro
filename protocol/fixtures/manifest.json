@@ -90,6 +90,16 @@
       "file": "mirror-stream-stop.json",
       "expect": "valid",
       "type": "mirror.stream.stop"
+    },
+    {
+      "file": "input-gesture.json",
+      "expect": "valid",
+      "type": "input.gesture"
+    },
+    {
+      "file": "input-action.json",
+      "expect": "valid",
+      "type": "input.action"
     }
   ]
 }

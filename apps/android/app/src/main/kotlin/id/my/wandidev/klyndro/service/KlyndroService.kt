@@ -22,6 +22,7 @@ import id.my.wandidev.klyndro.connection.DiscoveredEntry
 import id.my.wandidev.klyndro.connection.MirrorProofResponder
 import id.my.wandidev.klyndro.discovery.NsdDiscovery
 import id.my.wandidev.klyndro.filetransfer.AndroidFileReceiver
+import id.my.wandidev.klyndro.mirror.KlyndroAccessibilityService
 import id.my.wandidev.klyndro.mirror.StandardMirrorStreamer
 import id.my.wandidev.klyndro.crypto.AndroidKeyStoreIdentities
 import id.my.wandidev.klyndro.crypto.DeviceIdentity
@@ -42,6 +43,8 @@ import id.my.wandidev.klyndro.net.ReconnectPolicy
 import id.my.wandidev.klyndro.net.TlsClient
 import id.my.wandidev.klyndro.protocol.Capability
 import id.my.wandidev.klyndro.protocol.DeviceId
+import id.my.wandidev.klyndro.protocol.InputActionBody
+import id.my.wandidev.klyndro.protocol.InputGestureBody
 import id.my.wandidev.klyndro.protocol.MessageType
 import id.my.wandidev.klyndro.protocol.MirrorStreamStartBody
 import id.my.wandidev.klyndro.protocol.MirrorStreamStopBody
@@ -474,6 +477,14 @@ class KlyndroService : Service() {
                                     }
                                 } else if (event.envelope.messageType == MessageType.MIRROR_STREAM_STOP) {
                                     stopStandardMirror(notifyPeer = false, reason = null)
+                                } else if (event.envelope.messageType == MessageType.INPUT_GESTURE) {
+                                    InputGestureBody.decode(event.envelope)?.let { gesture ->
+                                        KlyndroAccessibilityService.dispatch(gesture)
+                                    }
+                                } else if (event.envelope.messageType == MessageType.INPUT_ACTION) {
+                                    InputActionBody.decode(event.envelope)?.let { action ->
+                                        KlyndroAccessibilityService.dispatch(action)
+                                    }
                                 } else if (event.envelope.messageType == MessageType.FILE_OFFER ||
                                     event.envelope.messageType == MessageType.FILE_CHUNK ||
                                     event.envelope.messageType == MessageType.FILE_COMPLETE

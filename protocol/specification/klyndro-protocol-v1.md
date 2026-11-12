@@ -242,6 +242,20 @@ dedicated pinned mutual-TLS 1.3 video stream over the existing JSON control chan
   packets (`uint32_be length | uint8 flags | int64_be pts_us | byte[] h264_annex_b`) where
   `length` MUST be in `[9, 4194304]`, `flags` `0x01` = SPS/PPS config, `0x02` = keyframe, `0x00` = delta.
 
+### 5.6a Standard remote input without ADB (M7)
+
+Sent from Mac to Android over the authenticated JSON control channel while Standard Mirroring is active:
+
+| Type | Status | Body |
+| --- | --- | --- |
+| `input.gesture` | specified (M7) | `kind` (`"tap"` \| `"long_press"` \| `"swipe"`), `x`, `y`, `end_x` (swipe), `end_y` (swipe), `duration_ms` |
+| `input.action` | specified (M7) | `action` (`"back"` \| `"home"` \| `"recents"` \| `"notifications"` \| `"lock_screen"`) |
+
+- Coordinates `x`, `y`, `end_x`, `end_y` MUST be normalized floats in `[0.0, 1.0]` relative to the mirrored display.
+- `duration_ms` MUST be an integer in `1..5000`.
+- Out-of-range coordinates, unknown kinds/actions, or invalid durations MUST be ignored.
+- On Android, execution is backed by an explicit user-enabled `AccessibilityService` (`dispatchGesture` / `performGlobalAction`). If the user has not enabled Accessibility, input messages are ignored without error.
+
 ### 5.5 File transfer (M5)
 
 Implemented for local-network transfers using JSON envelope frames (`kind = 0x01`):

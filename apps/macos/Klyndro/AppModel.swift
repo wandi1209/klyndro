@@ -250,6 +250,16 @@ final class AppModel {
         }
     }
 
+    func sendStandardGesture(_ gesture: InputGestureBody) async {
+        guard isStandardMirroring, let activeSession else { return }
+        try? await activeSession.send(gesture.toEnvelope())
+    }
+
+    func sendStandardAction(_ action: InputActionKind) async {
+        guard isStandardMirroring, let activeSession else { return }
+        try? await activeSession.send(InputActionBody(action: action).toEnvelope())
+    }
+
     // MARK: - File transfer to the phone
 
     var canSendFile: Bool { fileSender != nil && fileSendProgress == nil }

@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import id.my.wandidev.klyndro.R
+import id.my.wandidev.klyndro.mirror.KlyndroAccessibilityService
 import id.my.wandidev.klyndro.notifications.KlyndroNotificationListener
 import id.my.wandidev.klyndro.ui.InfoCard
 import id.my.wandidev.klyndro.ui.ScreenColumn
@@ -22,6 +23,7 @@ import id.my.wandidev.klyndro.ui.ScreenHeader
 fun PermissionsScreen() {
     val context = LocalContext.current
     val hasNotifAccess = KlyndroNotificationListener.isPermissionGranted(context)
+    val hasAccessibility = KlyndroAccessibilityService.isEnabled(context)
 
     ScreenColumn {
         ScreenHeader(
@@ -57,6 +59,22 @@ fun PermissionsScreen() {
                 }
             ) {
                 Text("Grant Notification Access")
+            }
+        }
+
+        InfoCard(
+            title = stringResource(R.string.permissions_accessibility_title),
+            body = stringResource(R.string.permissions_accessibility_body),
+            badge = if (hasAccessibility) "Granted" else "Requires grant"
+        )
+
+        if (!hasAccessibility) {
+            Button(
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+            ) {
+                Text(stringResource(R.string.permissions_open_accessibility))
             }
         }
 
