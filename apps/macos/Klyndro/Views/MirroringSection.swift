@@ -13,131 +13,150 @@ struct MirroringSection: View {
         @Bindable var mirroring = model.mirroring
 
         GroupBox("Screen mirroring") {
-            VStack(alignment: .leading, spacing: 10) {
-                deviceRow(mirroring)
-
-                if let reason = mirroring.blockingReason, !mirroring.isActive {
-                    Label(reason, systemImage: "info.circle")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
-                wirelessRow(mirroring)
-
-                optionsRow(mirroring)
-
-                HStack {
-                    if mirroring.isActive {
-                        Button(role: .destructive) {
-                            mirroring.stop()
-                        } label: {
-                            Label("Stop mirroring", systemImage: "stop.circle")
-                        }
-                        .disabled(mirroring.state == .stopping)
-                    } else {
-                        Button {
-                            Task { await mirroring.startOrGuide() }
-                        } label: {
-                            Label("Start mirroring", systemImage: "play.circle")
-                        }
-                        .disabled(mirroring.toolProblem != nil || mirroring.isConnectingWirelessly)
-                    }
-
-                    Text(stateText(mirroring.state))
-                        .font(.caption)
-                        .foregroundStyle(stateColor(mirroring.state))
-
-                    Spacer()
-
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
                     if model.isStandardMirroring {
                         Button(role: .destructive) {
                             Task { await model.stopStandardMirroring(reason: "user_stopped") }
                         } label: {
-                            Label("Stop Standard Mirror", systemImage: "stop.circle")
+                            Label("Stop Screen Mirroring", systemImage: "stop.circle")
                         }
                     } else {
                         Button {
                             openWindow(id: "standard-mirror")
                             Task { await model.startStandardMirroring() }
                         } label: {
-                            Label("Standard Mirror (No ADB)", systemImage: "rectangle.inset.filled.and.person.filled")
+                            Label("Start Screen Mirroring", systemImage: "play.circle")
                         }
+                        .buttonStyle(.borderedProminent)
                         .disabled(!model.isConnected)
-                        .help("Mirror via MediaProjection over local TLS (no ADB or scrcpy needed)")
+                        .help("Standard Mode: mirror over local Wi-Fi without ADB or scrcpy")
                     }
-                }
 
-                if case .failed = mirroring.state, !mirroring.recentLog.isEmpty {
-                    DisclosureGroup("scrcpy output") {
-                        Text(mirroring.recentLog.suffix(12).joined(separator: "\n"))
-                            .font(.system(.caption, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .font(.caption)
+                    Text(model.isStandardMirroring ? (model.standardMirrorReceiver?.statusText ?? model.standardMirrorStatus) : "Standard Mode (No ADB)")
+                        .font(.caption)
+                        .foregroundStyle(model.isStandardMirroring ? .green : .secondary)
                 }
 
                 Text(
-                    "Uses your own scrcpy and adb. The picture and input are handled by scrcpy's window; "
-                    + "audio is not captured."
+                    "Default mode works over Wi-Fi without ADB or Developer Options. "
+                    + "Approve the screen-sharing prompt on your phone; enable Klyndro in Android Accessibility settings for mouse/touch control."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-                DisclosureGroup("Advanced ADB controls") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            ForEach(AdbNavKey.allCases, id: \.self) { key in
-                                Button(key.displayName) {
-                                    Task { await mirroring.sendNavKey(key) }
-                                }
-                                .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
-                            }
-                            Spacer()
-                            Button {
-                                Task { await mirroring.takeScreenshot() }
-                            } label: {
-                                Label("Screenshot", systemImage: "camera")
-                            }
-                            .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
-                        }
+                Divider()
 
-                        HStack(spacing: 8) {
-                            Picker("App", selection: Binding(
-                                get: { mirroring.selectedPackage },
-                                set: { mirroring.selectedPackage = $0 }
-                            )) {
-                                if mirroring.installedPackages.isEmpty {
-                                    Text("Tap Refresh to load apps").tag("")
-                                }
-                                ForEach(mirroring.installedPackages, id: \.value) { pkg in
-                                    Text(pkg.value).tag(pkg.value)
-                                }
-                            }
-                            .disabled(mirroring.installedPackages.isEmpty || mirroring.isRunningAdbAction)
+                DisclosureGroup("Advanced Mode (ADB / scrcpy)") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        deviceRow(mirroring)
 
-                            Button {
-                                Task { await mirroring.refreshInstalledPackages() }
-                            } label: {
-                                Image(systemName: "arrow.clockwise")
-                            }
-                            .help("List user apps via adb")
-                            .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
-
-                            Button("Open App") {
-                                Task { await mirroring.launchSelectedPackage() }
-                            }
-                            .disabled(mirroring.selectedPackage.isEmpty || mirroring.isRunningAdbAction)
-                        }
-
-                        if let msg = mirroring.adbActionMessage {
-                            Text(msg)
-                                .font(.caption)
+                        if let reason = mirroring.blockingReason, !mirroring.isActive {
+                            Label(reason, systemImage: "info.circle")
+                                .font(.callout)
                                 .foregroundStyle(.secondary)
-                                .textSelection(.enabled)
                         }
+
+                        wirelessRow(mirroring)
+
+                        optionsRow(mirroring)
+
+                        HStack {
+                            if mirroring.isActive {
+                                Button(role: .destructive) {
+                                    mirroring.stop()
+                                } label: {
+                                    Label("Stop ADB mirroring", systemImage: "stop.circle")
+                                }
+                                .disabled(mirroring.state == .stopping)
+                            } else {
+                                Button {
+                                    Task { await mirroring.startOrGuide() }
+                                } label: {
+                                    Label("Start ADB mirroring", systemImage: "play.circle")
+                                }
+                                .disabled(mirroring.toolProblem != nil || mirroring.isConnectingWirelessly)
+                            }
+
+                            Text(stateText(mirroring.state))
+                                .font(.caption)
+                                .foregroundStyle(stateColor(mirroring.state))
+                        }
+
+                        if case .failed = mirroring.state, !mirroring.recentLog.isEmpty {
+                            DisclosureGroup("scrcpy output") {
+                                Text(mirroring.recentLog.suffix(12).joined(separator: "\n"))
+                                    .font(.system(.caption, design: .monospaced))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .font(.caption)
+                        }
+
+                        Text(
+                            "Uses your own scrcpy and adb for full keyboard shortcuts, screen-off mode, and structured ADB controls."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                        DisclosureGroup("Advanced ADB controls") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
+                                    ForEach(AdbNavKey.allCases, id: \.self) { key in
+                                        Button(key.displayName) {
+                                            Task { await mirroring.sendNavKey(key) }
+                                        }
+                                        .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
+                                    }
+                                    Spacer()
+                                    Button {
+                                        Task { await mirroring.takeScreenshot() }
+                                    } label: {
+                                        Label("Screenshot", systemImage: "camera")
+                                    }
+                                    .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
+                                }
+
+                                HStack(spacing: 8) {
+                                    Picker("App", selection: Binding(
+                                        get: { mirroring.selectedPackage },
+                                        set: { mirroring.selectedPackage = $0 }
+                                    )) {
+                                        if mirroring.installedPackages.isEmpty {
+                                            Text("Tap Refresh to load apps").tag("")
+                                        }
+                                        ForEach(mirroring.installedPackages, id: \.value) { pkg in
+                                            Text(pkg.value).tag(pkg.value)
+                                        }
+                                    }
+                                    .disabled(mirroring.installedPackages.isEmpty || mirroring.isRunningAdbAction)
+
+                                    Button {
+                                        Task { await mirroring.refreshInstalledPackages() }
+                                    } label: {
+                                        Image(systemName: "arrow.clockwise")
+                                    }
+                                    .help("List user apps via adb")
+                                    .disabled(mirroring.toolProblem != nil || mirroring.isRunningAdbAction)
+
+                                    Button("Open App") {
+                                        Task { await mirroring.launchSelectedPackage() }
+                                    }
+                                    .disabled(mirroring.selectedPackage.isEmpty || mirroring.isRunningAdbAction)
+                                }
+
+                                if let msg = mirroring.adbActionMessage {
+                                    Text(msg)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                            .padding(.top, 6)
+                        }
+                        .font(.callout)
                     }
-                    .padding(.top, 6)
+                    .padding(.top, 8)
                 }
                 .font(.callout)
             }

@@ -28,12 +28,26 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
 
-        if model.mirroring.isActive {
-            Button("Stop Screen Mirroring") { model.mirroring.stop() }
+        if model.isStandardMirroring {
+            Button("Stop Screen Mirroring") {
+                Task { await model.stopStandardMirroring(reason: "user_stopped") }
+            }
         } else {
-            Button("Start Screen Mirroring") { Task { await model.mirroring.startOrGuide() } }
+            Button("Start Screen Mirroring") {
+                openWindow(id: "standard-mirror")
+                NSApp.activate(ignoringOtherApps: true)
+                Task { await model.startStandardMirroring() }
+            }
+            .disabled(!model.isConnected)
+            .help("Standard Mode (no ADB or scrcpy required)")
+        }
+
+        if model.mirroring.isActive {
+            Button("Stop ADB Mirroring (scrcpy)") { model.mirroring.stop() }
+        } else {
+            Button("Advanced Mirroring (ADB / scrcpy)") { Task { await model.mirroring.startOrGuide() } }
                 .disabled(model.mirroring.toolProblem != nil)
-                .help(model.mirroring.toolProblem ?? "Mirror the phone with scrcpy")
+                .help(model.mirroring.toolProblem ?? "Mirror the phone with scrcpy + adb")
         }
 
         Divider()
