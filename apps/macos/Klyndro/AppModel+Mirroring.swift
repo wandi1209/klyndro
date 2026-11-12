@@ -92,9 +92,13 @@ final class MirroringController {
     /// Looks for phones with Wireless debugging on and runs `adb connect` for each. Works only for
     /// phones already paired with this Mac's adb, so it cannot reach a device that never approved it.
     @discardableResult
-    func connectWirelessly() async -> Bool {
+    func connectWirelessly(showPopupOnFailure: Bool = false) async -> Bool {
         guard let adb = adbPath else {
-            wirelessMessage = "adb is not installed."
+            let msg = "adb is not installed. Install Android platform-tools (brew install android-platform-tools)."
+            wirelessMessage = msg
+            if showPopupOnFailure {
+                present(title: "Advanced Mode needs adb", message: msg)
+            }
             return false
         }
         guard !isConnectingWirelessly else { return false }
@@ -104,8 +108,13 @@ final class MirroringController {
 
         let endpoints = await WirelessAdbDiscovery.scanConnectEndpoints()
         guard !endpoints.isEmpty else {
-            wirelessMessage = "No phone is offering Wireless debugging on this network. "
-                + "Turn it on in Developer options, and make sure both devices share the Wi-Fi."
+            let msg = "No phone is offering Wireless debugging on this network.\n\n"
+                + "Open Settings → Developer options → Wireless debugging on your phone, "
+                + "and make sure both devices share the same Wi-Fi."
+            wirelessMessage = "No phone is offering Wireless debugging. Turn it on in Developer options."
+            if showPopupOnFailure {
+                present(title: "Turn on Wireless debugging", message: msg)
+            }
             return false
         }
 
@@ -142,9 +151,16 @@ final class MirroringController {
         }
 
         await refreshDevices()
-        wirelessMessage = connected
-            ? nil
-            : "Found a phone but could not connect: \(lastFailure). If this is the first time, pair it below."
+        if !connected {
+            let msg = "Found a phone but could not connect: \(lastFailure). "
+                + "If this Mac has never been authorised by adb, plug in USB once with USB debugging on."
+            wirelessMessage = msg
+            if showPopupOnFailure {
+                present(title: "Could not connect over Wi-Fi", message: msg)
+            }
+        } else {
+            wirelessMessage = nil
+        }
         return connected
     }
 
@@ -271,8 +287,34 @@ final class MirroringController {
 
     // MARK: - Structured ADB controls (paired phone only)
 
+    /// Checks whether Advanced Mode prerequisites (connection, adb/scrcpy, USB/Wireless debugging)
+    /// are ready, and presents an actionable popup if anything is missing.
+    func guideAdvancedSetupIfNeeded(isConnected: Bool) async {
+        guard isConnected else {
+            present(
+                title: "Phone not connected",
+                message: "Connect your paired phone to Klyndro first before using Advanced Mode."
+            )
+            return
+        }
+        if let problem = toolProblem {
+            lastMessage = problem
+            present(title: "Advanced Mode needs adb & scrcpy", message: problem)
+            return
+        }
+        await refreshDevices()
+        if !devices.contains(where: \.isUsable) {
+            await connectWirelessly()
+        }
+        if selectedDevice == nil {
+            let guidance = MirroringGuidance.make(devices: devices)
+            lastMessage = guidance.message
+            present(title: guidance.title, message: guidance.message)
+        }
+    }
+
     func sendNavKey(_ key: AdbNavKey) async {
-        guard let serial = await verifiedSelectedSerial(), let adb = adbPath else { return }
+        guard let serial = await verifiedSelectedSerial(showPopupOnMissing: true), let adb = adbPath else { return }
         isRunningAdbAction = true
         defer { isRunningAdbAction = false }
         let args = AdbControlCommand.keyEventArguments(serial: serial, key: key)
@@ -281,7 +323,7 @@ final class MirroringController {
     }
 
     func refreshInstalledPackages() async {
-        guard let serial = await verifiedSelectedSerial(), let adb = adbPath else { return }
+        guard let serial = await verifiedSelectedSerial(showPopupOnMissing: true), let adb = adbPath else { return }
         isRunningAdbAction = true
         defer { isRunningAdbAction = false }
         let args = AdbControlCommand.listPackagesArguments(serial: serial)
@@ -300,7 +342,7 @@ final class MirroringController {
 
     func launchSelectedPackage() async {
         guard let pkg = AdbPackageName(selectedPackage),
-              let serial = await verifiedSelectedSerial(),
+              let serial = await verifiedSelectedSerial(showPopupOnMissing: true),
               let adb = adbPath else { return }
         isRunningAdbAction = true
         defer { isRunningAdbAction = false }
@@ -310,7 +352,7 @@ final class MirroringController {
     }
 
     func takeScreenshot() async {
-        guard let serial = await verifiedSelectedSerial(), let adb = adbPath else { return }
+        guard let serial = await verifiedSelectedSerial(showPopupOnMissing: true), let adb = adbPath else { return }
         isRunningAdbAction = true
         defer { isRunningAdbAction = false }
         let args = AdbControlCommand.screencapArguments(serial: serial)
@@ -328,20 +370,45 @@ final class MirroringController {
         do {
             try pngData.write(to: dest)
             adbActionMessage = "Saved \(dest.lastPathComponent) to Downloads."
+            Task {
+                _ = await NotificationCenterForwarder.shared.requestAuthorization()
+                await NotificationCenterForwarder.shared.post(
+                    key: "klyndro-screenshot:\(stamp)",
+                    title: "Screenshot Saved",
+                    body: "\(dest.lastPathComponent) saved to Downloads."
+                )
+            }
         } catch {
             adbActionMessage = "Could not save screenshot: \(error.localizedDescription)"
         }
     }
 
-    private func verifiedSelectedSerial() async -> String? {
+    private func verifiedSelectedSerial(showPopupOnMissing: Bool = false) async -> String? {
+        if let problem = toolProblem {
+            adbActionMessage = problem
+            if showPopupOnMissing {
+                present(title: "Advanced Mode needs adb & scrcpy", message: problem)
+            }
+            return nil
+        }
         await refreshDevices()
+        if !devices.contains(where: \.isUsable) {
+            await connectWirelessly()
+        }
         guard let device = selectedDevice, device.isUsable else {
-            adbActionMessage = "No usable ADB device found."
+            let guidance = MirroringGuidance.make(devices: devices)
+            adbActionMessage = guidance.message
+            if showPopupOnMissing {
+                present(title: guidance.title, message: guidance.message)
+            }
             return nil
         }
         let result = await verifySerial?(device.serial) ?? .failure(.notConnected)
         if case .failure(let error) = result {
             adbActionMessage = error.description
+            if showPopupOnMissing {
+                present(title: "Phone not allowed", message: error.description)
+            }
             return nil
         }
         return device.serial

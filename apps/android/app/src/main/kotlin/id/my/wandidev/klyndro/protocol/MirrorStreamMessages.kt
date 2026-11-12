@@ -10,7 +10,8 @@ data class MirrorStreamStartBody(
     val codec: String = SUPPORTED_CODEC,
     val maxWidth: Int = 1080,
     val fps: Int = 30,
-    val bitrate: Int = 4_000_000
+    val bitrate: Int = 4_000_000,
+    val audio: Boolean = false
 ) {
     fun toEnvelope(): Envelope = Envelope.create(
         MessageType.MIRROR_STREAM_START,
@@ -21,6 +22,7 @@ data class MirrorStreamStartBody(
             addProperty("max_width", maxWidth)
             addProperty("fps", fps)
             addProperty("bitrate", bitrate)
+            addProperty("audio", audio)
         }
     )
 
@@ -45,6 +47,7 @@ data class MirrorStreamStartBody(
             if (fps !in FPS_RANGE) return null
             val bitrate = body.get("bitrate")?.takeIf { it.isJsonPrimitive }?.asInt ?: return null
             if (bitrate !in BITRATE_RANGE) return null
+            val audio = body.get("audio")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: false
 
             return MirrorStreamStartBody(
                 streamId = streamId.lowercase(),
@@ -52,7 +55,8 @@ data class MirrorStreamStartBody(
                 codec = codec,
                 maxWidth = maxWidth,
                 fps = fps,
-                bitrate = bitrate
+                bitrate = bitrate,
+                audio = audio
             )
         }
     }
@@ -89,6 +93,7 @@ data class MirrorStreamStopBody(
 object VideoStreamPacketCodec {
     const val FLAG_CONFIG: Byte = 0x01
     const val FLAG_KEY_FRAME: Byte = 0x02
+    const val FLAG_AUDIO_PCM: Byte = 0x04
     const val MAX_PACKET_LENGTH = 4_194_304
 
     fun encode(flags: Byte, ptsUs: Long, payload: ByteArray): ByteArray {

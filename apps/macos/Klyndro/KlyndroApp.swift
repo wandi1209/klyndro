@@ -70,7 +70,8 @@ struct KlyndroApp: App {
             StandardMirrorView()
                 .environment(model)
         }
-        .defaultSize(width: 420, height: 820)
+        .defaultSize(width: 360, height: 820)
+        .windowResizability(.contentSize)
 
         Settings {
             SettingsView()

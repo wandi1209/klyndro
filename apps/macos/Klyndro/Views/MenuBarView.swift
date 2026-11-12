@@ -8,6 +8,11 @@ struct MenuBarView: View {
     @AppStorage(PreferenceKeys.clipboardSyncEnabled) private var clipboardSync = true
     @AppStorage(PreferenceKeys.notificationsEnabled) private var notifications = false
     @AppStorage(PreferenceKeys.autoReconnect) private var autoReconnect = true
+    @AppStorage(PreferenceKeys.mirroringMode) private var mirroringModeRaw = MirroringMode.standard.rawValue
+
+    private var mirroringMode: MirroringMode {
+        MirroringMode(rawValue: mirroringModeRaw) ?? .standard
+    }
 
     var body: some View {
         Text("Klyndro — \(model.connectionSummary)")
@@ -28,27 +33,35 @@ struct MenuBarView: View {
             NSApp.activate(ignoringOtherApps: true)
         }
 
-        if model.isStandardMirroring {
-            Button("Stop Screen Mirroring") {
-                Task { await model.stopStandardMirroring(reason: "user_stopped") }
+        if mirroringMode == .standard {
+            if model.isStandardMirroring {
+                Button("Stop Screen Mirroring") {
+                    Task { await model.stopStandardMirroring(reason: "user_stopped") }
+                }
+            } else {
+                Button("Start Screen Mirroring") {
+                    openWindow(id: "standard-mirror")
+                    NSApp.activate(ignoringOtherApps: true)
+                    Task { await model.startStandardMirroring() }
+                }
+                .disabled(!model.isConnected)
+                .help("Standard Mode (no ADB or scrcpy required)")
             }
         } else {
-            Button("Start Screen Mirroring") {
-                openWindow(id: "standard-mirror")
-                NSApp.activate(ignoringOtherApps: true)
-                Task { await model.startStandardMirroring() }
+            if model.mirroring.isActive {
+                Button("Stop Screen Mirroring (ADB)") { model.mirroring.stop() }
+            } else {
+                Button("Start Screen Mirroring (ADB)") { Task { await model.mirroring.startOrGuide() } }
+                    .disabled(!model.isConnected)
+                    .help(!model.isConnected ? "Connect your phone first" : "Advanced Mode (scrcpy + adb)")
             }
-            .disabled(!model.isConnected)
-            .help("Standard Mode (no ADB or scrcpy required)")
         }
 
-        if model.mirroring.isActive {
-            Button("Stop ADB Mirroring (scrcpy)") { model.mirroring.stop() }
-        } else {
-            Button("Advanced Mirroring (ADB / scrcpy)") { Task { await model.mirroring.startOrGuide() } }
-                .disabled(model.mirroring.toolProblem != nil)
-                .help(model.mirroring.toolProblem ?? "Mirror the phone with scrcpy + adb")
+        Button("Take Screenshot") {
+            Task { await model.mirroring.takeScreenshot() }
         }
+        .disabled(!model.isConnected || model.mirroring.isRunningAdbAction)
+        .help(!model.isConnected ? "Connect your phone first" : "Capture phone screen to ~/Downloads via adb")
 
         Divider()
 

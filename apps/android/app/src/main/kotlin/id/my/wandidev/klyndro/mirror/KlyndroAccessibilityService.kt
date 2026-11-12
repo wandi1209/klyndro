@@ -6,12 +6,16 @@ import android.content.ComponentName
 import android.content.Context
 import android.graphics.Path
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import id.my.wandidev.klyndro.protocol.InputActionBody
 import id.my.wandidev.klyndro.protocol.InputActionKind
 import id.my.wandidev.klyndro.protocol.InputGestureBody
 import id.my.wandidev.klyndro.protocol.InputGestureKind
+import id.my.wandidev.klyndro.protocol.InputTextBody
+import id.my.wandidev.klyndro.protocol.InputTextMode
 
 /**
  * Executes user-initiated Standard Mode remote gestures and navigation actions without ADB
@@ -75,6 +79,29 @@ class KlyndroAccessibilityService : AccessibilityService() {
         return performGlobalAction(globalAction)
     }
 
+    fun executeText(input: InputTextBody): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return false
+        if (!focused.isEditable) return false
+
+        val existing = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focused.isShowingHintText) {
+            ""
+        } else {
+            focused.text?.toString() ?: ""
+        }
+
+        val updated = when (input.mode) {
+            InputTextMode.REPLACE -> input.text
+            InputTextMode.APPEND -> existing + input.text
+            InputTextMode.BACKSPACE -> if (existing.isNotEmpty()) existing.dropLast(1) else ""
+        }
+
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updated)
+        }
+        return focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
     companion object {
         @Volatile
         private var instance: KlyndroAccessibilityService? = null
@@ -94,5 +121,8 @@ class KlyndroAccessibilityService : AccessibilityService() {
 
         fun dispatch(action: InputActionBody): Boolean =
             instance?.executeAction(action) ?: false
+
+        fun dispatch(input: InputTextBody): Boolean =
+            instance?.executeText(input) ?: false
     }
 }

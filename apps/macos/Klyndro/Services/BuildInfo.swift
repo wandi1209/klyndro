@@ -10,6 +10,22 @@ enum PreferenceKeys {
     static let autoReconnect = "autoReconnect"
     static let launchAtLogin = "launchAtLogin"
     static let allowSensitiveClipboard = "allowSensitiveClipboard"
+    static let mirroringMode = "mirroringMode"
+    static let standardAudioEnabled = "standardAudioEnabled"
+}
+
+enum MirroringMode: String, CaseIterable, Identifiable {
+    case standard
+    case advanced
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .standard: return "Standard (No ADB)"
+        case .advanced: return "Advanced (ADB / scrcpy)"
+        }
+    }
 }
 
 enum BuildInfo {

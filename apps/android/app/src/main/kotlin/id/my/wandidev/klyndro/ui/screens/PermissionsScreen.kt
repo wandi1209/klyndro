@@ -51,6 +51,19 @@ fun PermissionsScreen() {
     ) { granted ->
         hasPostNotif = granted
     }
+    var hasRecordAudio by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val recordAudioLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasRecordAudio = granted
+    }
 
     ScreenColumn {
         ScreenHeader(
@@ -111,6 +124,22 @@ fun PermissionsScreen() {
                 }
             ) {
                 Text(stringResource(R.string.permissions_open_accessibility))
+            }
+        }
+
+        InfoCard(
+            title = stringResource(R.string.permissions_audio_title),
+            body = stringResource(R.string.permissions_audio_body),
+            badge = if (hasRecordAudio) "Granted" else "Requires grant"
+        )
+
+        if (!hasRecordAudio) {
+            Button(
+                onClick = {
+                    recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            ) {
+                Text(stringResource(R.string.permissions_grant_audio))
             }
         }
 

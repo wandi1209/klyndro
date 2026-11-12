@@ -3,35 +3,51 @@ import KlyndroKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+private enum MainTab: String, CaseIterable, Identifiable {
+    case overview = "Overview"
+    case mirroring = "Mirroring"
+    case system = "System"
+
+    var id: String { rawValue }
+}
+
 struct MainWindowView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
+    @State private var selectedTab: MainTab = .overview
     @State private var showingDiagnostics = false
 
     @AppStorage(PreferenceKeys.clipboardSyncEnabled) private var clipboardSync = true
     @AppStorage(PreferenceKeys.notificationsEnabled) private var notifications = false
+    @AppStorage(PreferenceKeys.mirroringMode) private var mirroringModeRaw = MirroringMode.standard.rawValue
+
+    private var mirroringMode: MirroringMode {
+        MirroringMode(rawValue: mirroringModeRaw) ?? .standard
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if let error = model.identityError {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                            .textSelection(.enabled)
-                    }
-                    statusSection
-                    devicesSection
-                    discoveredSection
-                    MirroringSection()
-                    toolchainSection
-                }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let error = model.identityError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+            }
+
+            switch selectedTab {
+            case .overview:
+                overviewForm
+            case .mirroring:
+                MirroringSection()
+            case .system:
+                systemForm
             }
         }
-        .frame(minWidth: 660, minHeight: 480)
+        .frame(minWidth: 640, minHeight: 500)
         .task { await model.probeToolchain() }
         .sheet(isPresented: $showingDiagnostics) {
             DiagnosticsView()
@@ -47,29 +63,211 @@ struct MainWindowView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image(nsImage: NSApp.applicationIconImage)
+        HStack(spacing: 14) {
+            Image(nsImage: appIconImage)
                 .resizable()
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Klyndro")
-                    .font(.title2.weight(.semibold))
+                HStack(spacing: 8) {
+                    Text("Klyndro")
+                        .font(.title3.weight(.semibold))
+                    statusPill
+                }
                 Text("Your devices, seamlessly connected.")
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Button {
-                showingDiagnostics = true
-            } label: {
-                Label("Diagnostics", systemImage: "stethoscope")
+            Picker("", selection: $selectedTab) {
+                ForEach(MainTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
             }
+            .pickerStyle(.segmented)
+            .frame(width: 240)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private var statusPill: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(model.isConnected ? Color.green : Color.orange)
+                .frame(width: 6, height: 6)
+            Text(model.isConnected ? "Connected" : "Idle")
+                .font(.caption2.weight(.medium))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill((model.isConnected ? Color.green : Color.orange).opacity(0.14))
+        )
+    }
+
+    private var overviewForm: some View {
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(model.connectionSummary)
+                            .font(.headline)
+                        Text("Identity \(model.identityFingerprintShort)")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    Spacer()
+                    Button {
+                        Task { await model.beginPairing() }
+                    } label: {
+                        Label("Pair Device", systemImage: "qrcode")
+                    }
+                    .disabled(model.identity == nil || model.isPairingWindowOpen)
+
+                    Button {
+                        if mirroringMode == .standard {
+                            openWindow(id: "standard-mirror")
+                            Task { await model.startStandardMirroring() }
+                        } else {
+                            Task { await model.mirroring.startOrGuide() }
+                        }
+                    } label: {
+                        Label("Mirror Screen", systemImage: "iphone.gen3")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!model.isConnected)
+                }
+            }
+
+            Section("Sync & File Transfer") {
+                LabeledContent("Clipboard sync", value: clipboardSync ? "On" : "Off")
+                LabeledContent("Notifications", value: notifications ? "On" : "Off")
+                if model.isConnected {
+                    LabeledContent(
+                        "Clipboard activity",
+                        value: "\(model.clipboardSentCount) sent · \(model.clipboardAppliedCount) received"
+                    )
+                }
+                LabeledContent("File transfer") {
+                    HStack(spacing: 10) {
+                        if let progress = model.fileSendProgress {
+                            ProgressView(value: progress).frame(width: 100)
+                        }
+                        if let message = model.fileSendMessage {
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Button {
+                            chooseFileToSend()
+                        } label: {
+                            Label("Send file…", systemImage: "arrow.up.doc")
+                        }
+                        .disabled(!model.canSendFile)
+                    }
+                }
+            }
+
+            Section("Paired Devices") {
+                if model.pairedPeers.isEmpty {
+                    Text("No paired devices yet. Click Pair Device to show a QR code.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(model.pairedPeers) { peer in
+                        HStack(spacing: 10) {
+                            Image(systemName: peer.platform == "android" ? "iphone.gen3" : "laptopcomputer")
+                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(peer.name).font(.body.weight(.medium))
+                                Text(peer.fingerprintValue?.shortHex ?? "—")
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if let device = model.devices.first(where: { $0.id == peer.deviceID }) {
+                                Text(device.connectionState.displayName)
+                                    .font(.caption)
+                                    .foregroundStyle(device.isConnected ? .green : .secondary)
+                            }
+                            Button("Forget") { model.unpair(peer) }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                    }
+                }
+            }
+
+            if !model.discoveredPeers.isEmpty {
+                Section("Nearby (Bonjour)") {
+                    ForEach(model.discoveredPeers) { peer in
+                        LabeledContent(peer.name, value: peer.isPaired ? "Paired" : "Not paired")
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var systemForm: some View {
+        Form {
+            Section("Listener & Identity") {
+                LabeledContent("Listening") {
+                    if let error = model.listenerError {
+                        Text(error).foregroundStyle(.red)
+                    } else {
+                        Text(model.isListening ? "Yes, on port \(String(AppModel.servicePort))" : "No")
+                            .foregroundStyle(model.isListening ? .primary : .secondary)
+                    }
+                }
+                LabeledContent("Device fingerprint") {
+                    Text(model.identityFingerprintShort)
+                        .monospaced()
+                        .textSelection(.enabled)
+                }
+            }
+
+            Section("Optional Tools (for Advanced Mode)") {
+                ForEach(model.toolchain?.tools ?? []) { tool in
+                    LabeledContent {
+                        Text(tool.version ?? tool.purpose)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } label: {
+                        Label {
+                            Text(tool.name)
+                        } icon: {
+                            Image(systemName: tool.isAvailable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(tool.isAvailable ? Color.green : Color.orange)
+                        }
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    Button {
+                        Task { await model.probeToolchain() }
+                    } label: {
+                        Label("Re-check tools", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(model.isProbingToolchain)
+
+                    Button {
+                        showingDiagnostics = true
+                    } label: {
+                        Label("Open Diagnostics", systemImage: "stethoscope")
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 
     private func chooseFileToSend() {
@@ -82,188 +280,11 @@ struct MainWindowView: View {
         Task { await model.sendFile(at: url) }
     }
 
-    private var statusSection: some View {
-        GroupBox("Status") {
-            VStack(alignment: .leading, spacing: 8) {
-                LabeledContent("Connection") {
-                    Text(model.connectionSummary)
-                        .foregroundStyle(model.isConnected ? .primary : .secondary)
-                }
-                LabeledContent("This device") {
-                    Text(model.identityFingerprintShort)
-                        .monospaced()
-                        .textSelection(.enabled)
-                }
-                LabeledContent("Listening") {
-                    if let error = model.listenerError {
-                        Text(error).foregroundStyle(.red)
-                    } else {
-                        Text(model.isListening ? "Yes, on port \(AppModel.servicePort)" : "No")
-                            .foregroundStyle(model.isListening ? .primary : .secondary)
-                    }
-                }
-                LabeledContent("Clipboard sync", value: clipboardSync ? "On" : "Off")
-                LabeledContent("Notifications", value: notifications ? "On" : "Off")
-
-                if model.isConnected {
-                    LabeledContent(
-                        "Clipboard",
-                        value: "\(model.clipboardSentCount) sent · \(model.clipboardAppliedCount) received"
-                    )
-                }
-
-                Text(
-                    "Clipboard sync from the phone only runs while Klyndro is on screen on Android; "
-                    + "that is an Android restriction."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
-            }
-            .padding(6)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private var appIconImage: NSImage {
+        if let icnsURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let image = NSImage(contentsOf: icnsURL) {
+            return image
         }
-    }
-
-    private var devicesSection: some View {
-        GroupBox("Paired devices") {
-            VStack(alignment: .leading, spacing: 10) {
-                if model.pairedPeers.isEmpty {
-                    Text("No paired devices yet.")
-                        .foregroundStyle(.secondary)
-                        .font(.callout)
-                } else {
-                    ForEach(model.pairedPeers) { peer in
-                        HStack(spacing: 10) {
-                            Image(systemName: peer.platform == "android" ? "iphone.gen3" : "laptopcomputer")
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(peer.name).font(.body.weight(.medium))
-                                Text("\(peer.platform) · \(peer.fingerprintValue?.shortHex ?? "—")")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if let device = model.devices.first(where: { $0.id == peer.deviceID }) {
-                                Text(device.connectionState.displayName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Button("Forget") { model.unpair(peer) }
-                                .buttonStyle(.borderless)
-                        }
-                    }
-                }
-
-                Divider()
-
-                HStack {
-                    Button {
-                        Task { await model.beginPairing() }
-                    } label: {
-                        Label("Pair a device…", systemImage: "plus.circle")
-                    }
-                    .disabled(model.identity == nil || model.isPairingWindowOpen)
-
-                    if model.isPairingWindowOpen {
-                        Text("Pairing window open for 60 seconds")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Button {
-                            chooseFileToSend()
-                        } label: {
-                            Label("Send file to phone…", systemImage: "arrow.up.doc")
-                        }
-                        .disabled(!model.canSendFile)
-
-                        if let progress = model.fileSendProgress {
-                            ProgressView(value: progress).frame(width: 140)
-                        }
-                    }
-                    if let message = model.fileSendMessage {
-                        Text(message)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    } else if !model.isConnected {
-                        Text("Connect to a phone to send files.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .padding(6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var discoveredSection: some View {
-        GroupBox("Nearby devices") {
-            VStack(alignment: .leading, spacing: 8) {
-                if model.discoveredPeers.isEmpty {
-                    Text("Searching the local network…")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(model.discoveredPeers) { peer in
-                        HStack(spacing: 10) {
-                            Image(systemName: "dot.radiowaves.left.and.right")
-                                .foregroundStyle(.secondary)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(peer.name).font(.body.weight(.medium))
-                                Text(peer.isPaired ? "Paired" : "Not paired")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                        }
-                    }
-                }
-
-                Text("Devices are discovered over Bonjour. Being visible says nothing about trust; a session still requires a pinned key.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var toolchainSection: some View {
-        GroupBox("System tools") {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(model.toolchain?.tools ?? []) { tool in
-                    HStack(spacing: 8) {
-                        Image(systemName: tool.isAvailable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(tool.isAvailable ? Color.green : Color.orange)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(tool.name).font(.body.weight(.medium))
-                            Text(tool.version ?? tool.purpose)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-                        Spacer()
-                    }
-                }
-
-                if let toolchain = model.toolchain, !toolchain.missingRequired.isEmpty {
-                    Text("Mirroring will not work until adb is installed. See Diagnostics.")
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
-                } else if model.toolchain == nil {
-                    Text(model.isProbingToolchain ? "Checking…" : "Not checked yet")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        return NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
     }
 }

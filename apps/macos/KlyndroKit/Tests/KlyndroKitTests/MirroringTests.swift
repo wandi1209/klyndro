@@ -98,6 +98,16 @@ struct ScrcpyCommandTests {
         #expect(invocation.arguments.contains("--stay-awake"))
     }
 
+    @Test("audio modes map to documented scrcpy flags")
+    func audioModeFlags() {
+        #expect(make(MirroringOptions(audioMode: .phoneOnly)).arguments.contains("--no-audio"))
+        #expect(!make(MirroringOptions(audioMode: .macOnly)).arguments.contains("--no-audio"))
+        let bothArgs = make(MirroringOptions(audioMode: .both)).arguments
+        #expect(bothArgs.contains("--audio-source=playback"))
+        #expect(bothArgs.contains("--audio-dup"))
+        #expect(make(MirroringOptions(audioMode: .disabled)).arguments.contains("--no-audio-playback"))
+    }
+
     @Test("out-of-range numbers are dropped instead of forwarded")
     func dropsBadNumbers() {
         let invocation = make(MirroringOptions(maxSize: 10, maxFPS: 9_999))

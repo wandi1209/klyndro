@@ -1,6 +1,7 @@
 package id.my.wandidev.klyndro.ui
 
 import android.app.Application
+import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -101,6 +102,21 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
     private var engine: ClipboardSyncEngine? = null
     private var pollJob: Job? = null
     private var inboundJob: Job? = null
+    private var statusJob: Job? = null
+    private var isResumed = false
+    private var pendingSharedText: String? = null
+    private val clipboardManager =
+        application.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
+        if (isResumed && clipboardSyncEnabled && status.value.phase == ConnectionStatus.Phase.CONNECTED) {
+            viewModelScope.launch {
+                clipboard.read()?.let { snapshot ->
+                    clipboardPreview = preview(snapshot.text)
+                    sendSnapshot(snapshot)
+                }
+            }
+        }
+    }
 
     private val deviceId: DeviceId by lazy {
         val stored = prefs.getString(KEY_DEVICE_ID, null)
@@ -112,6 +128,29 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
     init {
         inboundJob = viewModelScope.launch {
             ConnectionRuntime.inbound.collect { envelope -> handleInbound(envelope) }
+        }
+        statusJob = viewModelScope.launch {
+            var wasConnected = false
+            ConnectionRuntime.status.collect { current ->
+                val connected = current.phase == ConnectionStatus.Phase.CONNECTED
+                if (connected && !wasConnected) {
+                    val queued = pendingSharedText
+                    if (queued != null) {
+                        pendingSharedText = null
+                        sendTextToMac(queued)
+                    }
+                    if (isResumed && clipboardSyncEnabled) {
+                        startClipboardLoop()
+                        clipboard.read()?.let { snapshot ->
+                            clipboardPreview = preview(snapshot.text)
+                            sendSnapshot(snapshot)
+                        }
+                    }
+                } else if (!connected && wasConnected) {
+                    stopClipboardLoop()
+                }
+                wasConnected = connected
+            }
         }
     }
 
@@ -133,13 +172,26 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
 
     /** Called when the Activity becomes visible: the only time Android lets us touch the clipboard. */
     fun onResumed() {
+        isResumed = true
         // M4: automatically start the connection service when the user opens the app
         if (!status.value.serviceRunning) {
             startService()
         }
         ensureEngine()
+        runCatching { clipboardManager?.addPrimaryClipChangedListener(clipListener) }
         refreshClipboardPreview()
         startClipboardLoop()
+    }
+
+    /** Called once the window actually gains input focus (when Android grants clipboard access). */
+    fun onWindowFocused() {
+        if (!clipboardSyncEnabled) return
+        ensureEngine()
+        val snapshot = clipboard.read() ?: return
+        clipboardPreview = preview(snapshot.text)
+        if (status.value.phase == ConnectionStatus.Phase.CONNECTED) {
+            viewModelScope.launch { sendSnapshot(snapshot) }
+        }
     }
 
     /** Reads the clipboard once, for the in-app preview. */
@@ -155,6 +207,8 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onPaused() {
+        isResumed = false
+        runCatching { clipboardManager?.removePrimaryClipChangedListener(clipListener) }
         stopClipboardLoop()
     }
 
@@ -243,11 +297,18 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { sendSnapshot(snapshot) }
     }
 
-    /** Sends user-typed text without touching the clipboard, which Android restricts. */
+    /** Sends user-typed or shared text without touching the clipboard, which Android restricts. */
     fun sendTextToMac(text: String) {
         val currentEngine = engine ?: ensureEngine().let { engine!! }
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
+
+        if (status.value.phase != ConnectionStatus.Phase.CONNECTED) {
+            pendingSharedText = trimmed
+            clipboardActionMessage = "Connecting to Mac — text will send immediately once connected…"
+            if (!status.value.serviceRunning) startService()
+            return
+        }
 
         when (val decision = currentEngine.explicitOutbound(trimmed)) {
             is ClipboardOutbound.Suppress -> clipboardActionMessage =
@@ -354,8 +415,11 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
     }
 
     override fun onCleared() {
+        isResumed = false
+        runCatching { clipboardManager?.removePrimaryClipChangedListener(clipListener) }
         stopClipboardLoop()
         inboundJob?.cancel()
+        statusJob?.cancel()
         super.onCleared()
     }
 
@@ -364,7 +428,7 @@ class KlyndroViewModel(application: Application) : AndroidViewModel(application)
         const val KEY_CLIPBOARD_SYNC = "clipboard_sync_enabled"
         const val KEY_NOTIFICATIONS = "notifications_enabled"
         const val KEY_DEVICE_ID = "view_device_id"
-        const val POLL_INTERVAL_MILLIS = 700L
+        const val POLL_INTERVAL_MILLIS = 250L
         const val PREVIEW_CHARS = 120
     }
 }

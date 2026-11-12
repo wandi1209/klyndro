@@ -71,6 +71,9 @@ private final class StreamPipeline: @unchecked Sendable {
     private var headerBuffer = Data()
     private var packetDecoder = VideoStreamPacketDecoder()
     private var formatDescription: CMVideoFormatDescription?
+    private var audioEngine: AVAudioEngine?
+    private var audioPlayer: AVAudioPlayerNode?
+    private var audioFormat: AVAudioFormat?
     private var stopped = false
 
     var onStatus: (@Sendable (String, Bool) -> Void)?
@@ -119,6 +122,10 @@ private final class StreamPipeline: @unchecked Sendable {
             self.activeConnection = nil
             self.listener?.cancel()
             self.listener = nil
+            self.audioPlayer?.stop()
+            self.audioEngine?.stop()
+            self.audioPlayer = nil
+            self.audioEngine = nil
         }
     }
 
@@ -190,6 +197,10 @@ private final class StreamPipeline: @unchecked Sendable {
     }
 
     private func handlePacket(_ packet: VideoStreamPacket) {
+        if packet.isAudioPCM {
+            handleAudioPCM(packet.payload)
+            return
+        }
         if let sets = H264AnnexBParser.extractParameterSets(from: packet.payload) {
             updateFormatDescription(sps: sets.sps, pps: sets.pps)
         }
@@ -282,6 +293,42 @@ private final class StreamPipeline: @unchecked Sendable {
             if dims.width > 0 && dims.height > 0 {
                 onVideoSize?(CGSize(width: Int(dims.width), height: Int(dims.height)))
             }
+        }
+    }
+
+    private func handleAudioPCM(_ data: Data) {
+        guard !stopped, !data.isEmpty else { return }
+        if audioEngine == nil {
+            let engine = AVAudioEngine()
+            let player = AVAudioPlayerNode()
+            guard let format = AVAudioFormat(
+                commonFormat: .pcmFormatInt16,
+                sampleRate: 48_000,
+                channels: 2,
+                interleaved: true
+            ) else { return }
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: format)
+            do {
+                try engine.start()
+                player.play()
+                audioEngine = engine
+                audioPlayer = player
+                audioFormat = format
+            } catch {
+                return
+            }
+        }
+        guard let player = audioPlayer, let format = audioFormat else { return }
+        let frameCount = UInt32(data.count / Int(format.streamDescription.pointee.mBytesPerFrame))
+        guard frameCount > 0, let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return
+        }
+        pcmBuffer.frameLength = frameCount
+        let dst = pcmBuffer.audioBufferList.pointee.mBuffers.mData
+        if let dst {
+            data.copyBytes(to: dst.assumingMemoryBound(to: UInt8.self), count: data.count)
+            player.scheduleBuffer(pcmBuffer)
         }
     }
 }

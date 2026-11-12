@@ -1,5 +1,37 @@
 import Foundation
 
+/// Audio routing for Advanced Mode (`scrcpy`).
+public enum MirrorAudioMode: String, CaseIterable, Identifiable, Sendable {
+    /// Keep audio on the phone speaker only (`--no-audio`).
+    case phoneOnly = "phone_only"
+    /// Route audio to Mac and mute the phone speaker (Android 11+).
+    case macOnly = "mac_only"
+    /// Play audio on both Mac and phone (Android 13+, `--audio-source=playback --audio-dup`).
+    case both = "both"
+    /// Mute audio on both devices (`--no-audio-playback`, Android 11+).
+    case disabled = "disabled"
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .phoneOnly: return "Phone only"
+        case .macOnly: return "Mac only (mute phone)"
+        case .both: return "Mac + Phone"
+        case .disabled: return "Mute both"
+        }
+    }
+
+    public var scrcpyFlags: [String] {
+        switch self {
+        case .phoneOnly: return ["--no-audio"]
+        case .macOnly: return []
+        case .both: return ["--audio-source=playback", "--audio-dup"]
+        case .disabled: return ["--no-audio-playback"]
+        }
+    }
+}
+
 /// User-facing mirroring settings. Defaults favour privacy: no audio, screen stays as it is.
 public struct MirroringOptions: Sendable, Equatable {
     /// Cap on the longer edge, in pixels. `nil` lets scrcpy pick the device resolution.
@@ -10,19 +42,22 @@ public struct MirroringOptions: Sendable, Equatable {
     /// View-only: no keyboard or mouse injection.
     public var viewOnly: Bool
     public var stayAwake: Bool
+    public var audioMode: MirrorAudioMode
 
     public init(
         maxSize: Int? = nil,
         maxFPS: Int? = nil,
         turnScreenOff: Bool = false,
         viewOnly: Bool = false,
-        stayAwake: Bool = false
+        stayAwake: Bool = false,
+        audioMode: MirrorAudioMode = .phoneOnly
     ) {
         self.maxSize = maxSize
         self.maxFPS = maxFPS
         self.turnScreenOff = turnScreenOff
         self.viewOnly = viewOnly
         self.stayAwake = stayAwake
+        self.audioMode = audioMode
     }
 
     public static let `default` = MirroringOptions()
@@ -50,7 +85,8 @@ public enum ScrcpyCommand {
         options: MirroringOptions,
         baseEnvironment: [String: String] = [:]
     ) -> Invocation {
-        var arguments = ["--serial=\(serial)", "--window-title=\(windowTitle)", "--no-audio"]
+        var arguments = ["--serial=\(serial)", "--window-title=\(windowTitle)"]
+        arguments.append(contentsOf: options.audioMode.scrcpyFlags)
 
         if let size = options.maxSize, MirroringOptions.sizeRange.contains(size) {
             arguments.append("--max-size=\(size)")

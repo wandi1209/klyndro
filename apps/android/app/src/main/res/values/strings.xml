@@ -55,6 +55,9 @@
     <string name="permissions_accessibility_title">Remote control (Standard Mode)</string>
     <string name="permissions_accessibility_body">Optional. Enables tap, swipe, scroll, Back, Home, and Recents from your Mac without ADB. On Android 13–15 / HyperOS sideloaded APKs, open App info → ⋮ → Allow restricted settings before enabling Accessibility.</string>
     <string name="permissions_open_accessibility">Open Accessibility settings</string>
+    <string name="permissions_audio_title">Mirror audio (Standard Mode)</string>
+    <string name="permissions_audio_body">Optional. Android requires audio-record permission to forward app playback audio to your Mac during Standard Mirroring (some DRM apps still block capture).</string>
+    <string name="permissions_grant_audio">Allow mirror audio</string>
     <string name="accessibility_service_label">Klyndro Remote Control</string>
     <string name="accessibility_service_description">Allows your paired Mac to send tap, swipe, and navigation gestures during Standard Mirroring.</string>
 
@@ -77,10 +80,10 @@
     <string name="service_status_mirroring">Sharing screen with Mac</string>
     <string name="service_status_closed">Connection closed</string>
     <string name="standard_mirror_stop">Stop screen sharing</string>
-    <string name="service_error_unreachable">Could not reach the Mac</string>
-    <string name="service_error_no_address">No paired Mac with a known address</string>
-    <string name="service_error_failed">Connection failed</string>
-    <string name="service_error_identity">Device identity unavailable: %1$s</string>
+    <string name="service_error_unreachable">Could not reach your Mac. Make sure Klyndro is open on your Mac.</string>
+    <string name="service_error_no_address">No paired Mac yet. Tap Scan QR code or pick your Mac below.</string>
+    <string name="service_error_failed">Could not connect to your Mac. Please try again.</string>
+    <string name="service_error_identity">Device security key could not be loaded. Try restarting the app.</string>
 
     <!-- Clipboard -->
     <string name="clipboard_status_title">Clipboard</string>

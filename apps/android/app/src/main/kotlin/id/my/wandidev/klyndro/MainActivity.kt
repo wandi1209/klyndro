@@ -1,5 +1,6 @@
 package id.my.wandidev.klyndro
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,11 +17,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleShareIntent(intent)
         setContent {
             KlyndroTheme {
                 KlyndroApp(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleShareIntent(intent)
     }
 
     // Android only allows clipboard access to a focused app, so the clipboard loop is tied to the
@@ -30,8 +38,23 @@ class MainActivity : ComponentActivity() {
         viewModel.onResumed()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            viewModel.onWindowFocused()
+        }
+    }
+
     override fun onPause() {
         viewModel.onPaused()
         super.onPause()
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            val shared = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+            viewModel.sendTextToMac(shared)
+            intent.action = null
+        }
     }
 }

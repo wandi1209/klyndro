@@ -21,6 +21,10 @@ public enum MessageType: Equatable, Sendable, Hashable {
     case mirrorStreamStop
     case inputGesture
     case inputAction
+    case inputText
+    case appListRequest
+    case appList
+    case appLaunch
     case pairRequest
     case pairConfirm
     case pairResult
@@ -47,6 +51,10 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case "mirror.stream.stop": self = .mirrorStreamStop
         case "input.gesture": self = .inputGesture
         case "input.action": self = .inputAction
+        case "input.text": self = .inputText
+        case "app.list.request": self = .appListRequest
+        case "app.list": self = .appList
+        case "app.launch": self = .appLaunch
         case "pair.request": self = .pairRequest
         case "pair.confirm": self = .pairConfirm
         case "pair.result": self = .pairResult
@@ -75,6 +83,10 @@ public enum MessageType: Equatable, Sendable, Hashable {
         case .mirrorStreamStop: return "mirror.stream.stop"
         case .inputGesture: return "input.gesture"
         case .inputAction: return "input.action"
+        case .inputText: return "input.text"
+        case .appListRequest: return "app.list.request"
+        case .appList: return "app.list"
+        case .appLaunch: return "app.launch"
         case .pairRequest: return "pair.request"
         case .pairConfirm: return "pair.confirm"
         case .pairResult: return "pair.result"

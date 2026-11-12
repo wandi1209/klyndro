@@ -19,7 +19,7 @@ public struct MirroringGuidance: Sendable, Equatable {
             message: """
             Mirroring needs one of these on the phone:
 
-            Wi-Fi: turn on Wireless debugging (Settings > Developer options). The first time, pair it once with "First time? Pair…" in Klyndro. Both devices must be on the same Wi-Fi network.
+            Wi-Fi: turn on Wireless debugging (Settings > Developer options). If this Mac has not been authorised by adb yet, connect via USB once first. Both devices must be on the same Wi-Fi network.
 
             USB: connect the cable and turn on USB debugging (Settings > Developer options), then accept the prompt on the phone.
 

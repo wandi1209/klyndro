@@ -12,6 +12,7 @@ public struct MirrorStreamStartBody: Equatable, Sendable {
     public var maxWidth: Int
     public var fps: Int
     public var bitrate: Int
+    public var audio: Bool
 
     public init(
         streamID: String,
@@ -19,7 +20,8 @@ public struct MirrorStreamStartBody: Equatable, Sendable {
         codec: String = supportedCodec,
         maxWidth: Int = 1080,
         fps: Int = 30,
-        bitrate: Int = 4_000_000
+        bitrate: Int = 4_000_000,
+        audio: Bool = false
     ) {
         self.streamID = streamID.lowercased()
         self.port = port
@@ -27,6 +29,7 @@ public struct MirrorStreamStartBody: Equatable, Sendable {
         self.maxWidth = maxWidth
         self.fps = fps
         self.bitrate = bitrate
+        self.audio = audio
     }
 
     public func toEnvelope() -> Envelope {
@@ -36,7 +39,8 @@ public struct MirrorStreamStartBody: Equatable, Sendable {
             "codec": .string(codec),
             "max_width": .number(Double(maxWidth)),
             "fps": .number(Double(fps)),
-            "bitrate": .number(Double(bitrate))
+            "bitrate": .number(Double(bitrate)),
+            "audio": .bool(audio)
         ]
         return Envelope(type: .mirrorStreamStart, body: .object(fields))
     }
@@ -52,13 +56,15 @@ public struct MirrorStreamStartBody: Equatable, Sendable {
               let bitrate = body["bitrate"]?.intValue, bitrateRange.contains(bitrate) else {
             return nil
         }
+        let audio = body["audio"]?.boolValue ?? false
         return MirrorStreamStartBody(
             streamID: streamID,
             port: port,
             codec: codec,
             maxWidth: maxWidth,
             fps: fps,
-            bitrate: bitrate
+            bitrate: bitrate,
+            audio: audio
         )
     }
 }
@@ -94,6 +100,7 @@ public struct MirrorStreamStopBody: Equatable, Sendable {
 public struct VideoStreamPacket: Equatable, Sendable {
     public static let flagConfig: UInt8 = 0x01
     public static let flagKeyFrame: UInt8 = 0x02
+    public static let flagAudioPCM: UInt8 = 0x04
     public static let maxPacketLength = 4_194_304 // 4 MiB
 
     public var flags: UInt8
@@ -108,6 +115,7 @@ public struct VideoStreamPacket: Equatable, Sendable {
 
     public var isConfig: Bool { (flags & Self.flagConfig) != 0 }
     public var isKeyFrame: Bool { (flags & Self.flagKeyFrame) != 0 }
+    public var isAudioPCM: Bool { (flags & Self.flagAudioPCM) != 0 }
 }
 
 public enum VideoStreamPacketError: Error, Equatable, Sendable {

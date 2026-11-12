@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "6a5b4c3d-2e1f-4a9b-8c7d-6e5f4a3b2c1d",
+  "type": "input.text",
+  "ts": 1762800014000,
+  "body": {
+    "mode": "append",
+    "text": "hello"
+  }
+}

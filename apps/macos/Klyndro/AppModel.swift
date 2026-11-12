@@ -55,6 +55,8 @@ final class AppModel {
     private(set) var standardMirrorReceiver: StandardMirrorReceiver?
     private(set) var isStandardMirroring = false
     private(set) var standardMirrorStatus = "Idle"
+    private(set) var standardApps: [StandardAppEntry] = []
+    private(set) var isLoadingStandardApps = false
     private var activeStandardStreamID: String?
     private var fileSender: FileTransferSender?
     private var mirrorProof: MirrorProofVerifier?
@@ -227,7 +229,8 @@ final class AppModel {
 
         do {
             let port = try await receiver.start()
-            let startBody = MirrorStreamStartBody(streamID: streamID, port: port)
+            let includeAudio = UserDefaults.standard.bool(forKey: PreferenceKeys.standardAudioEnabled)
+            let startBody = MirrorStreamStartBody(streamID: streamID, port: port, audio: includeAudio)
             try await activeSession.send(startBody.toEnvelope())
         } catch {
             standardMirrorStatus = "Could not start stream: \(error.localizedDescription)"
@@ -258,6 +261,23 @@ final class AppModel {
     func sendStandardAction(_ action: InputActionKind) async {
         guard isStandardMirroring, let activeSession else { return }
         try? await activeSession.send(InputActionBody(action: action).toEnvelope())
+    }
+
+    func sendStandardText(_ text: String, mode: InputTextMode = .append) async {
+        guard let activeSession else { return }
+        if mode != .backspace && text.isEmpty { return }
+        try? await activeSession.send(InputTextBody(mode: mode, text: text).toEnvelope())
+    }
+
+    func requestStandardAppList() async {
+        guard let activeSession else { return }
+        isLoadingStandardApps = true
+        try? await activeSession.send(AppLauncherMessages.listRequestEnvelope())
+    }
+
+    func launchStandardApp(_ package: AdbPackageName) async {
+        guard let activeSession else { return }
+        try? await activeSession.send(AppLauncherMessages.launchEnvelope(package: package))
     }
 
     // MARK: - File transfer to the phone
@@ -558,6 +578,11 @@ final class AppModel {
             await NotificationCenterForwarder.shared.post(post)
         case .mirrorProof:
             await mirrorProof?.handleProof(envelope)
+        case .appList:
+            if let apps = AppLauncherMessages.decodeList(envelope) {
+                standardApps = apps
+            }
+            isLoadingStandardApps = false
         case .mirrorStreamStop:
             if let stop = MirrorStreamStopBody.decode(envelope),
                stop.streamID == activeStandardStreamID {
@@ -668,6 +693,8 @@ final class AppModel {
             standardMirrorReceiver = nil
             activeStandardStreamID = nil
             isStandardMirroring = false
+            standardApps = []
+            isLoadingStandardApps = false
             fileSender = nil
             mirrorProof = nil
             fileSendProgress = nil

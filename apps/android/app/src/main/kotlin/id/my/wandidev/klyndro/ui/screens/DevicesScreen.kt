@@ -38,7 +38,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.my.wandidev.klyndro.R
 import id.my.wandidev.klyndro.connection.ConnectionStatus
 import id.my.wandidev.klyndro.connection.DiscoveredEntry
-import id.my.wandidev.klyndro.net.ManualEndpoint
 import id.my.wandidev.klyndro.ui.InfoCard
 import id.my.wandidev.klyndro.ui.QrScannerDialog
 import id.my.wandidev.klyndro.ui.ScreenColumn
@@ -51,12 +50,9 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
     val discovered by viewModel.discovered.collectAsStateWithLifecycle()
     var started by remember { mutableStateOf(false) }
     var manualText by remember { mutableStateOf("") }
-    var manualAddress by remember { mutableStateOf("") }
-    var manualAddressError by remember { mutableStateOf<String?>(null) }
     var showQrScanner by remember { mutableStateOf(false) }
     var cameraPermissionDenied by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val manualInvalidMessage = stringResource(R.string.devices_manual_invalid)
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -219,69 +215,6 @@ fun DevicesScreen(viewModel: KlyndroViewModel) {
                                 Text("USB")
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        // Manual IP[:port] fallback (F01) for networks where mDNS is filtered or IP changed.
-        OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.devices_manual_address),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = stringResource(R.string.devices_manual_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = manualAddress,
-                    onValueChange = {
-                        manualAddress = it
-                        if (manualAddressError != null) manualAddressError = null
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.devices_manual_label)) },
-                    placeholder = { Text("192.168.1.20 or 192.168.1.20:47823") },
-                    isError = manualAddressError != null,
-                    supportingText = manualAddressError?.let { errorText ->
-                        { Text(errorText) }
-                    },
-                    singleLine = true
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            val endpoint = ManualEndpoint.parse(manualAddress)
-                            if (endpoint == null) {
-                                manualAddressError = manualInvalidMessage
-                            } else {
-                                manualAddressError = null
-                                viewModel.pair(endpoint.host, endpoint.port, null)
-                            }
-                        },
-                        enabled = manualAddress.isNotBlank()
-                    ) {
-                        Text(stringResource(R.string.devices_manual_pair))
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            val endpoint = ManualEndpoint.parse(manualAddress)
-                            if (endpoint == null) {
-                                manualAddressError = manualInvalidMessage
-                            } else {
-                                manualAddressError = null
-                                viewModel.connectManual(endpoint.host, endpoint.port)
-                            }
-                        },
-                        enabled = manualAddress.isNotBlank()
-                    ) {
-                        Text(stringResource(R.string.devices_manual_connect))
                     }
                 }
             }

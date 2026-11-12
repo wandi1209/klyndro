@@ -231,16 +231,17 @@ dedicated pinned mutual-TLS 1.3 video stream over the existing JSON control chan
 
 | Type | Status | Body |
 | --- | --- | --- |
-| `mirror.stream.start` | specified (M7) | `stream_id`, `port`, `codec`, `max_width`, `fps`, `bitrate` |
+| `mirror.stream.start` | specified (M7) | `stream_id`, `port`, `codec`, `max_width`, `fps`, `bitrate`, `audio` (optional, bool) |
 | `mirror.stream.stop` | specified (M7) | `stream_id`, `reason` (optional) |
 
 - `stream_id` is a lowercase UUID identifying the media stream.
 - `port` is the TCP port (`1..65535`) on the Mac where a pinned mutual-TLS 1.3 listener is waiting.
 - `codec` is `"h264"` in v1.
 - `max_width` (`240..2160`), `fps` (`1..60`), and `bitrate` (`100_000..20_000_000` bps) bound encoder allocation.
+- `audio` (optional, default `false`): when `true`, Android captures internal playback audio via `AudioPlaybackCapture` (48 kHz stereo 16-bit LE PCM) if `RECORD_AUDIO` is granted.
 - On the media socket, Android sends the 36-byte ASCII `stream_id` followed by length-prefixed
-  packets (`uint32_be length | uint8 flags | int64_be pts_us | byte[] h264_annex_b`) where
-  `length` MUST be in `[9, 4194304]`, `flags` `0x01` = SPS/PPS config, `0x02` = keyframe, `0x00` = delta.
+  packets (`uint32_be length | uint8 flags | int64_be pts_us | byte[] payload`) where
+  `length` MUST be in `[9, 4194304]`, `flags` `0x01` = H.264 SPS/PPS config, `0x02` = H.264 keyframe, `0x00` = H.264 delta, `0x04` = 48 kHz stereo 16-bit LE PCM audio.
 
 ### 5.6a Standard remote input without ADB (M7)
 
@@ -250,11 +251,17 @@ Sent from Mac to Android over the authenticated JSON control channel while Stand
 | --- | --- | --- |
 | `input.gesture` | specified (M7) | `kind` (`"tap"` \| `"long_press"` \| `"swipe"`), `x`, `y`, `end_x` (swipe), `end_y` (swipe), `duration_ms` |
 | `input.action` | specified (M7) | `action` (`"back"` \| `"home"` \| `"recents"` \| `"notifications"` \| `"lock_screen"`) |
+| `input.text` | specified (M7) | `mode` (`"append"` \| `"replace"` \| `"backspace"`), `text` |
+| `app.list.request` | specified (M7) | *(empty)* |
+| `app.list` | specified (M7) | `apps` (`[{ "package": string, "label": string }]`, max 500) |
+| `app.launch` | specified (M7) | `package` |
 
 - Coordinates `x`, `y`, `end_x`, `end_y` MUST be normalized floats in `[0.0, 1.0]` relative to the mirrored display.
 - `duration_ms` MUST be an integer in `1..5000`.
-- Out-of-range coordinates, unknown kinds/actions, or invalid durations MUST be ignored.
-- On Android, execution is backed by an explicit user-enabled `AccessibilityService` (`dispatchGesture` / `performGlobalAction`). If the user has not enabled Accessibility, input messages are ignored without error.
+- `input.text`: `text` MUST be ≤ 4096 UTF-8 bytes (and non-empty for `"append"` / `"replace"`). On Android, text is applied to the focused editable `AccessibilityNodeInfo` via `ACTION_SET_TEXT`; `input.text` content MUST NEVER be logged.
+- `app.launch`: `package` MUST be a valid dot-separated Android package identifier (`<= 255` chars).
+- Out-of-range coordinates, unknown kinds/actions/modes, oversized text, or invalid package names MUST be ignored.
+- On Android, input execution is backed by an explicit user-enabled `AccessibilityService` (`dispatchGesture` / `performGlobalAction` / `ACTION_SET_TEXT`). If the user has not enabled Accessibility, input messages are ignored without error.
 
 ### 5.5 File transfer (M5)
 

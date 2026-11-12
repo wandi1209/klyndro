@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": "9d8e7f6a-5b4c-4d3e-9f8a-7b6c5d4e3f2a",
+  "type": "app.launch",
+  "ts": 1762800018000,
+  "body": {
+    "package": "id.my.wandidev.klyndro"
+  }
+}

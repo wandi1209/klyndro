@@ -20,8 +20,10 @@ import id.my.wandidev.klyndro.connection.ConnectionRuntime
 import id.my.wandidev.klyndro.connection.ConnectionStatus
 import id.my.wandidev.klyndro.connection.DiscoveredEntry
 import id.my.wandidev.klyndro.connection.MirrorProofResponder
+import id.my.wandidev.klyndro.connection.UserErrorFormatter
 import id.my.wandidev.klyndro.discovery.NsdDiscovery
 import id.my.wandidev.klyndro.filetransfer.AndroidFileReceiver
+import id.my.wandidev.klyndro.mirror.AppLauncher
 import id.my.wandidev.klyndro.mirror.KlyndroAccessibilityService
 import id.my.wandidev.klyndro.mirror.StandardMirrorStreamer
 import id.my.wandidev.klyndro.crypto.AndroidKeyStoreIdentities
@@ -41,10 +43,12 @@ import id.my.wandidev.klyndro.net.PeerSessionEvent
 import id.my.wandidev.klyndro.net.PinPolicy
 import id.my.wandidev.klyndro.net.ReconnectPolicy
 import id.my.wandidev.klyndro.net.TlsClient
+import id.my.wandidev.klyndro.protocol.AppLauncherMessages
 import id.my.wandidev.klyndro.protocol.Capability
 import id.my.wandidev.klyndro.protocol.DeviceId
 import id.my.wandidev.klyndro.protocol.InputActionBody
 import id.my.wandidev.klyndro.protocol.InputGestureBody
+import id.my.wandidev.klyndro.protocol.InputTextBody
 import id.my.wandidev.klyndro.protocol.MessageType
 import id.my.wandidev.klyndro.protocol.MirrorStreamStartBody
 import id.my.wandidev.klyndro.protocol.MirrorStreamStopBody
@@ -284,7 +288,7 @@ class KlyndroService : Service() {
                                 it.copy(
                                     phase = ConnectionStatus.Phase.ERROR,
                                     pairingCode = null,
-                                    lastError = event.reason.wireName
+                                    lastError = UserErrorFormatter.formatPairingFailure(event.reason)
                                 )
                             }
                         }
@@ -293,11 +297,14 @@ class KlyndroService : Service() {
 
                 runner.run()
             } catch (error: Exception) {
-                ConnectionRuntime.update {
-                    it.copy(
-                        phase = ConnectionStatus.Phase.ERROR,
-                        lastError = error.message ?: getString(R.string.service_error_unreachable)
-                    )
+                val friendly = UserErrorFormatter.formatConnectionError(error)
+                if (friendly != null) {
+                    ConnectionRuntime.update {
+                        it.copy(
+                            phase = ConnectionStatus.Phase.ERROR,
+                            lastError = friendly
+                        )
+                    }
                 }
             }
         }
@@ -390,11 +397,14 @@ class KlyndroService : Service() {
 
             val error = lastError
             if (error != null) {
-                ConnectionRuntime.update {
-                    it.copy(
-                        phase = ConnectionStatus.Phase.ERROR,
-                        lastError = error.message ?: getString(R.string.service_error_failed)
-                    )
+                val friendly = UserErrorFormatter.formatConnectionError(error)
+                if (friendly != null) {
+                    ConnectionRuntime.update {
+                        it.copy(
+                            phase = ConnectionStatus.Phase.ERROR,
+                            lastError = friendly
+                        )
+                    }
                 }
             }
         }
@@ -485,6 +495,17 @@ class KlyndroService : Service() {
                                 } else if (event.envelope.messageType == MessageType.INPUT_ACTION) {
                                     InputActionBody.decode(event.envelope)?.let { action ->
                                         KlyndroAccessibilityService.dispatch(action)
+                                    }
+                                } else if (event.envelope.messageType == MessageType.INPUT_TEXT) {
+                                    InputTextBody.decode(event.envelope)?.let { input ->
+                                        KlyndroAccessibilityService.dispatch(input)
+                                    }
+                                } else if (event.envelope.messageType == MessageType.APP_LIST_REQUEST) {
+                                    val apps = AppLauncher.listLaunchableApps(this@KlyndroService)
+                                    ConnectionRuntime.send(AppLauncherMessages.listEnvelope(apps))
+                                } else if (event.envelope.messageType == MessageType.APP_LAUNCH) {
+                                    AppLauncherMessages.decodeLaunch(event.envelope)?.let { pkg ->
+                                        AppLauncher.launchApp(this@KlyndroService, pkg)
                                     }
                                 } else if (event.envelope.messageType == MessageType.FILE_OFFER ||
                                     event.envelope.messageType == MessageType.FILE_CHUNK ||
@@ -651,6 +672,7 @@ class KlyndroService : Service() {
         ConnectionRuntime.setStandardMirroring(true)
 
         val streamer = StandardMirrorStreamer(
+            context = this,
             mediaProjection = projection,
             sourceWidth = metrics.widthPixels,
             sourceHeight = metrics.heightPixels,

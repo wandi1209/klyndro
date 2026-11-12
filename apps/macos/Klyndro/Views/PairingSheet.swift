@@ -69,11 +69,6 @@ struct PairingSheet: View {
                         .padding(12)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    Text("\(payload.host):\(payload.port)")
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
                 }
 
                 ProgressView("Waiting for a device…")
