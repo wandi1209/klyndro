@@ -10,6 +10,7 @@ import id.my.wandidev.klyndro.ui.SettingRow
 
 @Composable
 fun SettingsScreen(
+    serviceRunning: Boolean,
     clipboardSyncEnabled: Boolean,
     notificationsEnabled: Boolean,
     onClipboardSyncChange: (Boolean) -> Unit,
@@ -35,7 +36,9 @@ fun SettingsScreen(
         ScreenHeader(title = stringResource(R.string.settings_service_title))
 
         InfoCard(
-            title = stringResource(R.string.settings_service_state),
+            title = stringResource(
+                if (serviceRunning) R.string.settings_service_running else R.string.settings_service_not_running
+            ),
             body = stringResource(R.string.settings_service_body)
         )
     }

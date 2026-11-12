@@ -11,7 +11,9 @@ struct MenuBarView: View {
 
     var body: some View {
         Text("Klyndro — \(model.connectionSummary)")
-        Text("Connectivity arrives in milestone M1")
+        if model.isConnected {
+            Text("Clipboard: \(model.clipboardSentCount) sent · \(model.clipboardAppliedCount) received")
+        }
 
         Divider()
 
@@ -29,9 +31,9 @@ struct MenuBarView: View {
         if model.mirroring.isActive {
             Button("Stop Screen Mirroring") { model.mirroring.stop() }
         } else {
-            Button("Start Screen Mirroring") { model.mirroring.start() }
-                .disabled(model.mirroring.blockingReason != nil)
-                .help(model.mirroring.blockingReason ?? "Mirror the phone with scrcpy")
+            Button("Start Screen Mirroring") { Task { await model.mirroring.startOrGuide() } }
+                .disabled(model.mirroring.toolProblem != nil)
+                .help(model.mirroring.toolProblem ?? "Mirror the phone with scrcpy")
         }
 
         Divider()

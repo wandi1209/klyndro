@@ -1,3 +1,4 @@
+import AppKit
 import KlyndroKit
 import SwiftUI
 
@@ -46,9 +47,9 @@ struct MainWindowView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: "link.circle.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(.tint)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Klyndro")
@@ -90,13 +91,19 @@ struct MainWindowView: View {
                             .foregroundStyle(model.isListening ? .primary : .secondary)
                     }
                 }
-                LabeledContent("Clipboard sync", value: clipboardSync ? "Requested on" : "Off")
-                LabeledContent("Notifications", value: notifications ? "Requested on" : "Off")
+                LabeledContent("Clipboard sync", value: clipboardSync ? "On" : "Off")
+                LabeledContent("Notifications", value: notifications ? "On" : "Off")
+
+                if model.isConnected {
+                    LabeledContent(
+                        "Clipboard",
+                        value: "\(model.clipboardSentCount) sent · \(model.clipboardAppliedCount) received"
+                    )
+                }
 
                 Text(
-                    "M1 delivers secure connectivity: mutual TLS with pinned keys, the session "
-                    + "handshake, and pairing. Clipboard and mirroring are not implemented yet, "
-                    + "and no session has been verified against a physical phone."
+                    "Clipboard sync from the phone only runs while Klyndro is on screen on Android; "
+                    + "that is an Android restriction."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)

@@ -4,6 +4,9 @@ import SwiftUI
 /// Mirroring controls for the main window. The video window itself is scrcpy's.
 struct MirroringSection: View {
     @Environment(AppModel.self) private var model
+    @State private var showingPairing = false
+    @State private var pairingAddress = ""
+    @State private var pairingCode = ""
 
     var body: some View {
         @Bindable var mirroring = model.mirroring
@@ -18,6 +21,8 @@ struct MirroringSection: View {
                         .foregroundStyle(.secondary)
                 }
 
+                wirelessRow(mirroring)
+
                 optionsRow(mirroring)
 
                 HStack {
@@ -30,11 +35,11 @@ struct MirroringSection: View {
                         .disabled(mirroring.state == .stopping)
                     } else {
                         Button {
-                            mirroring.start()
+                            Task { await mirroring.startOrGuide() }
                         } label: {
                             Label("Start mirroring", systemImage: "play.circle")
                         }
-                        .disabled(mirroring.blockingReason != nil)
+                        .disabled(mirroring.toolProblem != nil || mirroring.isConnectingWirelessly)
                     }
 
                     Text(stateText(mirroring.state))
@@ -85,6 +90,56 @@ struct MirroringSection: View {
             }
             .help("Rescan attached devices")
             .disabled(mirroring.isRefreshing || mirroring.isActive)
+        }
+    }
+
+    @ViewBuilder
+    private func wirelessRow(_ mirroring: MirroringController) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    Task { await mirroring.connectWirelessly() }
+                } label: {
+                    Label("Connect over Wi-Fi", systemImage: "wifi")
+                }
+                .disabled(mirroring.isConnectingWirelessly || mirroring.isActive)
+
+                Button("First time? Pair…") { showingPairing.toggle() }
+                    .buttonStyle(.link)
+
+                if mirroring.isConnectingWirelessly { ProgressView().controlSize(.small) }
+            }
+
+            if let message = mirroring.wirelessMessage {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+
+            if showingPairing {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("On the phone: Developer options > Wireless debugging > Pair device with pairing code. Keep that dialog open and enter what it shows. You only do this once.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        TextField("IP:port (192.168.1.20:37099)", text: $pairingAddress)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Code", text: $pairingCode)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 90)
+                        Button("Pair") {
+                            let address = pairingAddress
+                            let code = pairingCode
+                            Task {
+                                await mirroring.pairWirelessly(address: address, code: code)
+                                pairingCode = ""
+                            }
+                        }
+                        .disabled(mirroring.isConnectingWirelessly)
+                    }
+                }
+            }
         }
     }
 

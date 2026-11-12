@@ -13,7 +13,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import id.my.wandidev.klyndro.R
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,7 +61,7 @@ fun ScreenHeader(title: String, subtitle: String? = null) {
 
 @Composable
 fun InfoCard(title: String, body: String, badge: String? = null) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = cardColors()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -81,7 +93,7 @@ fun SettingRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = cardColors()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -99,5 +111,50 @@ fun SettingRow(
             }
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
+    }
+}
+
+@Composable
+private fun cardColors() = CardDefaults.cardColors(
+    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+)
+
+/** The launcher icon, drawn in-app so the brand matches the home screen icon. */
+@Composable
+fun KlyndroLogo(size: Dp) {
+    Box(modifier = Modifier.size(size).clip(RoundedCornerShape(size * 0.225f))) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize()
+        )
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+enum class PillTone { POSITIVE, NEUTRAL, ERROR }
+
+@Composable
+fun StatusPill(text: String, tone: PillTone) {
+    val scheme = MaterialTheme.colorScheme
+    val dot = when (tone) {
+        PillTone.POSITIVE -> Color(0xFF2E9E6B)
+        PillTone.NEUTRAL -> scheme.outline
+        PillTone.ERROR -> scheme.error
+    }
+    Row(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(scheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(dot))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = text, style = MaterialTheme.typography.labelLarge)
     }
 }

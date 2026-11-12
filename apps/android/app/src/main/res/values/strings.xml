@@ -13,21 +13,21 @@
     <!-- Home -->
     <string name="home_status_title">Connection</string>
     <string name="home_status_not_connected">Not connected</string>
-    <string name="home_status_hint">This build can discover and securely pair. The connection service and the pairing screen arrive in M2.</string>
+    <string name="home_status_hint">Open the Devices tab to pair with a Mac or start the connection. Both devices must be on the same Wi-Fi network.</string>
     <string name="home_identity_title">This device</string>
     <string name="home_identity_body">Identity fingerprint %1$s. Both devices must show the same six-digit code before either trusts the other.</string>
     <string name="home_identity_unavailable">The device identity could not be loaded on this build. See Help.</string>
     <string name="home_build_title">This build</string>
-    <string name="home_build_body">Milestone M1 adds the secure connectivity core: mutual TLS with pinned keys, the session handshake, and pairing. The connection service and on-device pairing screen arrive in M2/M4.</string>
+    <string name="home_build_body">Pairing, clipboard sync, screen mirroring, notification forwarding and file transfer to the Mac are implemented. Clipboard sync runs while this app is on screen; Android does not allow more.</string>
     <string name="home_privacy_body">Klyndro talks only to your own devices on your own network. There is no account and no cloud service.</string>
     <string name="home_privacy_title">Local by design</string>
 
     <!-- Devices -->
     <string name="devices_title">Paired devices</string>
     <string name="devices_empty_title">No paired devices</string>
-    <string name="devices_empty_body">Pairing shows a six-digit code that must match on both devices before anything is trusted. The pairing screen is not built yet.</string>
+    <string name="devices_empty_body">Start pairing on the Mac, then pick it from the list below. Both devices show a six-digit code that must match before anything is trusted.</string>
     <string name="devices_manual_address">Manual address (fallback)</string>
-    <string name="devices_manual_hint">Available once the transport lands in M1.</string>
+    <string name="devices_manual_hint">Not available yet. Discovery uses mDNS on the local network.</string>
 
     <!-- Permissions -->
     <string name="permissions_title">Permissions</string>
@@ -37,20 +37,19 @@
     <string name="permissions_clipboard_title">Clipboard</string>
     <string name="permissions_clipboard_body">Android 10 and later block clipboard access for apps that are not in the foreground or set as the keyboard. Klyndro cannot read your clipboard silently in the background; see Help for the supported fallbacks.</string>
     <string name="permissions_notifications_title">Notification access</string>
-    <string name="permissions_notifications_body">A sensitive, user-granted system permission. It will be requested in M5, and only if you enable forwarding.</string>
+    <string name="permissions_notifications_body">A sensitive, user-granted system permission. Needed only to forward notifications to your Mac. Klyndro never asks for it silently.</string>
     <string name="permissions_state_granted">Granted</string>
-    <string name="permissions_state_not_required">Not required yet</string>
+    <string name="permissions_state_not_required">Not granted</string>
     <string name="permissions_open_settings">Open app settings</string>
 
     <!-- Settings -->
     <string name="settings_features_title">Features</string>
     <string name="settings_clipboard_title">Clipboard sync</string>
-    <string name="settings_clipboard_body">Preferences are stored now; synchronization itself arrives in M2.</string>
+    <string name="settings_clipboard_body">Share the clipboard with your Mac while Klyndro is on screen.</string>
     <string name="settings_notifications_title">Forward notifications</string>
-    <string name="settings_notifications_body">Arrives in M5.</string>
+    <string name="settings_notifications_body">Send notifications to your Mac. Requires Notification Access in system settings.</string>
     <string name="settings_service_title">Background service</string>
-    <string name="settings_service_state">Not running</string>
-    <string name="settings_service_body">The connection service arrives in M4. HyperOS also needs manual autostart and battery settings; see Help.</string>
+    <string name="settings_service_body">Starts from the Devices tab and keeps the link to your Mac alive. HyperOS also needs manual autostart and battery settings; see Help.</string>
 
     <!-- Connection service -->
     <string name="service_channel_name">Connection</string>
@@ -95,12 +94,24 @@
     <string name="help_battery_title">HyperOS: keep Klyndro alive</string>
     <string name="help_battery_body">Open Settings → Apps → Klyndro → Battery and choose "No restrictions". In Security → Autostart, allow Klyndro. Without these, HyperOS may stop background work even when Android allows it.</string>
     <string name="help_clipboard_title">Clipboard limits</string>
-    <string name="help_clipboard_body">Android only lets the focused app, or the active keyboard, read the clipboard. Klyndro plans a share-sheet action and a quick-settings tile so copying stays one tap, and will document exactly which path works on your device.</string>
+    <string name="help_clipboard_body">Android only lets the focused app, or the active keyboard, read the clipboard. Klyndro syncs while it is on screen, and sends the current clipboard when you open the app or tap Send. This is a platform restriction.</string>
     <string name="help_mirroring_title">Screen mirroring</string>
-    <string name="help_mirroring_body">Mirroring uses scrcpy on the Mac and needs USB debugging or wireless debugging enabled on the phone. It arrives in M3.</string>
+    <string name="help_mirroring_body">Mirroring uses scrcpy on the Mac and needs USB debugging or wireless debugging enabled on the phone. Start it from the Klyndro menu on the Mac.</string>
     <string name="about_title">About</string>
     <string name="about_version">Version</string>
     <string name="about_license">License</string>
     <string name="about_license_value">MIT</string>
     <string name="about_application_id">Application ID</string>
+
+    <!-- Status pill -->
+    <string name="status_connected">Connected</string>
+    <string name="status_connected_to">Connected to %1$s</string>
+    <string name="status_searching">Searching…</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_pairing">Pairing</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_error">Problem</string>
+    <string name="status_idle">Not connected</string>
+    <string name="settings_service_running">Running</string>
+    <string name="settings_service_not_running">Not running</string>
 </resources>
